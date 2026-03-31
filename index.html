@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes, maximum-scale=5" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Joanni's Inventory" />
+    <meta name="theme-color" content="#1a73a8" />
+    <title>Joanni's Inventory Tracker</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <div class="header-top-row">
+          <div>
+            <h1>Joanni's Inventory Tracker</h1>
+          </div>
+          <details class="main-menu" aria-label="Main menu">
+            <summary class="main-menu-trigger" aria-label="Open main menu" title="Main menu">☰</summary>
+            <div class="main-menu-content">
+              <div class="main-menu-group">
+                <h3>Backup and Restore</h3>
+                <p>Export your records as CSV and import the CSV backup later if browser data is cleared.</p>
+                <div class="backup-actions">
+                  <button id="export-backup" class="secondary-btn" type="button">Export CSV</button>
+                  <button id="import-backup" class="secondary-btn" type="button">Import CSV</button>
+                </div>
+              </div>
+              <div class="main-menu-group">
+                <h3>Reports</h3>
+                <p>Export the currently filtered inventory list to a CSV report.</p>
+                <div class="backup-actions">
+                  <button id="generate-report" class="secondary-btn" type="button">Generate Report</button>
+                </div>
+              </div>
+            </div>
+          </details>
+          <input id="backup-file" type="file" accept="text/csv,.csv" hidden />
+        </div>
+      </header>
+
+      <main class="app-main">
+        <section class="card table-card" aria-labelledby="table-title">
+          <div class="table-header">
+            <h2 id="table-title">Current Inventory</h2>
+            <button id="add-inventory-btn" class="primary-btn" type="button" aria-label="Add new inventory item">+ Add Item</button>
+          </div>
+
+          <div class="search-row">
+            <div class="search-label-row">
+              <label for="table-search">Search</label>
+            </div>
+            <input
+              id="table-search"
+              class="search-input"
+              type="search"
+              placeholder="Search item, expiration date, or status"
+            />
+          </div>
+
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col" aria-label="Delete checked items" class="delete-header-cell">
+                    <button id="delete-selected" class="secondary-btn" type="button" aria-label="Delete checked items" title="Delete checked items">🗑</button>
+                  </th>
+                  <th scope="col">Item Details</th>
+                  <th scope="col">Edit</th>
+                </tr>
+              </thead>
+              <tbody id="inventory-body">
+                <tr class="empty-row">
+                  <td colspan="3">No inventory items saved.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="selection-footer" aria-label="Row selection actions">
+            <button id="deselect-all" class="secondary-btn" type="button" aria-label="Deselect all checked items" title="Deselect all">☒</button>
+          </div>
+
+          <div class="pagination-row" aria-label="Table pagination">
+            <button id="prev-page" class="secondary-btn pagination-btn" type="button">Previous</button>
+            <span id="page-info" class="page-info">Page 1 of 1</span>
+            <button id="next-page" class="secondary-btn pagination-btn" type="button">Next</button>
+            <div class="pagination-secondary">
+              <div class="rows-page-controls">
+                <label for="rows-per-page" class="rows-page-label">Rows</label>
+                <select id="rows-per-page" class="rows-page-select" aria-label="Rows per page">
+                  <option value="10">10</option>
+                  <option value="15" selected>15</option>
+                  <option value="20">20</option>
+                  <option value="30">30</option>
+                  <option value="50">50</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer" role="contentinfo">
+        <p>Joanni's Inventory Tracker</p>
+      </footer>
+    </div>
+
+    <div id="alert-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="alert-title">
+      <div class="modal-content">
+        <h3 id="alert-title">Expiration Alert</h3>
+        <p id="alert-message"></p>
+        <div id="alert-table-wrap" class="alert-table-wrap hidden" aria-label="Expiring items table">
+          <table id="alert-table" class="alert-table">
+            <thead>
+              <tr>
+                <th scope="col">Item Name</th>
+                <th scope="col">Expiration Date</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody id="alert-table-body"></tbody>
+          </table>
+        </div>
+        <button id="close-modal" class="primary-btn" type="button">Close</button>
+      </div>
+    </div>
+
+    <div id="edit-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="edit-title">
+      <div class="modal-content">
+        <h3 id="edit-title">Edit Item</h3>
+        <div class="form-row">
+          <label for="edit-item-name">Item Name</label>
+          <input id="edit-item-name" type="text" />
+        </div>
+        <div class="form-row">
+          <label for="edit-expiration-date">Expiration Date</label>
+          <input id="edit-expiration-date" type="date" />
+        </div>
+        <div class="modal-buttons">
+          <button id="edit-save-btn" class="primary-btn" type="button">Save</button>
+          <button id="edit-cancel-btn" class="secondary-btn" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="add-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="add-title">
+      <div class="modal-content">
+        <h3 id="add-title">Add Inventory Item</h3>
+        <div class="form-row">
+          <label for="add-item-name">Item Name</label>
+          <input id="add-item-name" type="text" placeholder="Example: Amoxicillin 250mg" />
+        </div>
+        <div class="form-row">
+          <label for="add-expiration-date">Expiration Date</label>
+          <input id="add-expiration-date" type="date" />
+        </div>
+        <div class="modal-buttons">
+          <button id="add-save-btn" class="primary-btn" type="button">Save Item</button>
+          <button id="add-cancel-btn" class="secondary-btn" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
