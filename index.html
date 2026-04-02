@@ -1,169 +1,876 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes, maximum-scale=5" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Joanni's Inventory" />
-    <meta name="theme-color" content="#1a73a8" />
-    <title>Joanni's Inventory Tracker</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div class="app-shell">
-      <header class="app-header">
-        <div class="header-top-row">
-          <div>
-            <h1>Joanni's Inventory Tracker</h1>
-          </div>
-          <details class="main-menu" aria-label="Main menu">
-            <summary class="main-menu-trigger" aria-label="Open main menu" title="Main menu">☰</summary>
-            <div class="main-menu-content">
-              <div class="main-menu-group">
-                <h3>Backup and Restore</h3>
-                <p>Export your records as CSV and import the CSV backup later if browser data is cleared.</p>
-                <div class="backup-actions">
-                  <button id="export-backup" class="secondary-btn" type="button">Export CSV</button>
-                  <button id="import-backup" class="secondary-btn" type="button">Import CSV</button>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pharmacy Inventory Tracker</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body, #root {
+            height: 100%;
+            width: 100%;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            @apply bg-gray-50;
+        }
+        .critical { color: #ef4444; }
+        .warning { color: #f59e0b; }
+        .safe { color: #10b981; }
+        @media (max-width: 1023px) {
+            .desktop-only { display: none !important; }
+        }
+        @media (min-width: 1024px) {
+            .mobile-only { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // SearchBar Component
+        function SearchBar({ searchTerm, onSearchChange }) {
+            return (
+                <div className="relative">
+                    <input
+                        type="text"
+                        placeholder="Search by SKU or Description..."
+                        value={searchTerm}
+                        onChange={(e) => onSearchChange(e.target.value)}
+                        className="w-full px-4 py-3 pl-10 pr-4 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-blue-500 transition-colors"
+                    />
+                    <svg
+                        className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                    </svg>
                 </div>
-              </div>
-              <div class="main-menu-group">
-                <h3>Reports</h3>
-                <p>Export the currently filtered inventory list to a CSV report.</p>
-                <div class="backup-actions">
-                  <button id="generate-report" class="secondary-btn" type="button">Generate Report</button>
+            );
+        }
+
+        // InventoryForm Component
+        function InventoryForm({ onAddItem }) {
+            const [formData, setFormData] = useState({
+                sku: '',
+                description: '',
+                quantity: '',
+                expiryDate: '',
+                vendor: '',
+                returnPolicy: '',
+                pullOutDate: '',
+                remarks: '',
+                dateSignature: '',
+            });
+
+            const [errors, setErrors] = useState({});
+
+            const handleChange = (e) => {
+                const { name, value } = e.target;
+                setFormData(prev => ({
+                    ...prev,
+                    [name]: value,
+                }));
+                if (errors[name]) {
+                    setErrors(prev => ({
+                        ...prev,
+                        [name]: '',
+                    }));
+                }
+            };
+
+            const validateForm = () => {
+                const newErrors = {};
+                if (!formData.sku.trim()) newErrors.sku = 'SKU is required';
+                if (!formData.description.trim()) newErrors.description = 'Description is required';
+                if (!formData.quantity.trim()) newErrors.quantity = 'Quantity is required';
+                if (!formData.expiryDate.trim()) newErrors.expiryDate = 'Expiry Date is required';
+                if (!formData.vendor.trim()) newErrors.vendor = 'Vendor is required';
+                if (!formData.returnPolicy.trim()) newErrors.returnPolicy = 'Return Policy is required';
+                if (!formData.pullOutDate.trim()) newErrors.pullOutDate = 'Pull-out Date is required';
+
+                setErrors(newErrors);
+                return Object.keys(newErrors).length === 0;
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (!validateForm()) return;
+
+                onAddItem({
+                    sku: formData.sku.trim(),
+                    description: formData.description.trim(),
+                    quantity: parseInt(formData.quantity) || 0,
+                    expiryDate: formData.expiryDate.trim(),
+                    vendor: formData.vendor.trim(),
+                    returnPolicy: formData.returnPolicy.trim(),
+                    pullOutDate: formData.pullOutDate.trim(),
+                    remarks: formData.remarks.trim(),
+                    dateSignature: formData.dateSignature.trim(),
+                });
+
+                setFormData({
+                    sku: '',
+                    description: '',
+                    quantity: '',
+                    expiryDate: '',
+                    vendor: '',
+                    returnPolicy: '',
+                    pullOutDate: '',
+                    remarks: '',
+                    dateSignature: '',
+                });
+            };
+
+            return (
+                <div className="bg-white rounded-lg shadow-md p-6">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Add New Item</h2>
+
+                    <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {/* SKU */}
+                        <div>
+                            <label htmlFor="sku" className="block text-sm font-medium text-gray-700 mb-1">
+                                SKU #
+                            </label>
+                            <input
+                                type="text"
+                                id="sku"
+                                name="sku"
+                                value={formData.sku}
+                                onChange={handleChange}
+                                placeholder="e.g., SKU12345"
+                                className={`w-full px-3 py-2 rounded-lg border-2 focus:outline-none transition-colors ${
+                                    errors.sku
+                                        ? 'border-red-500 focus:border-red-500'
+                                        : 'border-gray-300 focus:border-blue-500'
+                                }`}
+                            />
+                            {errors.sku && <p className="text-red-500 text-xs mt-1">{errors.sku}</p>}
+                        </div>
+
+                        {/* Description */}
+                        <div>
+                            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                                Description
+                            </label>
+                            <input
+                                type="text"
+                                id="description"
+                                name="description"
+                                value={formData.description}
+                                onChange={handleChange}
+                                placeholder="e.g., Eltroxin 100mg"
+                                className={`w-full px-3 py-2 rounded-lg border-2 focus:outline-none transition-colors ${
+                                    errors.description
+                                        ? 'border-red-500 focus:border-red-500'
+                                        : 'border-gray-300 focus:border-blue-500'
+                                }`}
+                            />
+                            {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description}</p>}
+                        </div>
+
+                        {/* Quantity */}
+                        <div>
+                            <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">
+                                QTY
+                            </label>
+                            <input
+                                type="number"
+                                id="quantity"
+                                name="quantity"
+                                value={formData.quantity}
+                                onChange={handleChange}
+                                placeholder="0"
+                                min="0"
+                                className={`w-full px-3 py-2 rounded-lg border-2 focus:outline-none transition-colors ${
+                                    errors.quantity
+                                        ? 'border-red-500 focus:border-red-500'
+                                        : 'border-gray-300 focus:border-blue-500'
+                                }`}
+                            />
+                            {errors.quantity && <p className="text-red-500 text-xs mt-1">{errors.quantity}</p>}
+                        </div>
+
+                        {/* Expiry Date */}
+                        <div>
+                            <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700 mb-1">
+                                E.D. (MM/YYYY)
+                            </label>
+                            <input
+                                type="text"
+                                id="expiryDate"
+                                name="expiryDate"
+                                value={formData.expiryDate}
+                                onChange={handleChange}
+                                placeholder="MM/YYYY"
+                                className={`w-full px-3 py-2 rounded-lg border-2 focus:outline-none transition-colors ${
+                                    errors.expiryDate
+                                        ? 'border-red-500 focus:border-red-500'
+                                        : 'border-gray-300 focus:border-blue-500'
+                                }`}
+                            />
+                            {errors.expiryDate && <p className="text-red-500 text-xs mt-1">{errors.expiryDate}</p>}
+                        </div>
+
+                        {/* Vendor */}
+                        <div>
+                            <label htmlFor="vendor" className="block text-sm font-medium text-gray-700 mb-1">
+                                Vendor
+                            </label>
+                            <input
+                                type="text"
+                                id="vendor"
+                                name="vendor"
+                                value={formData.vendor}
+                                onChange={handleChange}
+                                placeholder="Supplier name"
+                                className={`w-full px-3 py-2 rounded-lg border-2 focus:outline-none transition-colors ${
+                                    errors.vendor
+                                        ? 'border-red-500 focus:border-red-500'
+                                        : 'border-gray-300 focus:border-blue-500'
+                                }`}
+                            />
+                            {errors.vendor && <p className="text-red-500 text-xs mt-1">{errors.vendor}</p>}
+                        </div>
+
+                        {/* Return Policy */}
+                        <div>
+                            <label htmlFor="returnPolicy" className="block text-sm font-medium text-gray-700 mb-1">
+                                Return Policy
+                            </label>
+                            <input
+                                type="text"
+                                id="returnPolicy"
+                                name="returnPolicy"
+                                value={formData.returnPolicy}
+                                onChange={handleChange}
+                                placeholder="e.g., 1 month before"
+                                className={`w-full px-3 py-2 rounded-lg border-2 focus:outline-none transition-colors ${
+                                    errors.returnPolicy
+                                        ? 'border-red-500 focus:border-red-500'
+                                        : 'border-gray-300 focus:border-blue-500'
+                                }`}
+                            />
+                            {errors.returnPolicy && <p className="text-red-500 text-xs mt-1">{errors.returnPolicy}</p>}
+                        </div>
+
+                        {/* Pull-out Date */}
+                        <div>
+                            <label htmlFor="pullOutDate" className="block text-sm font-medium text-gray-700 mb-1">
+                                Pull-out Date
+                            </label>
+                            <input
+                                type="date"
+                                id="pullOutDate"
+                                name="pullOutDate"
+                                value={formData.pullOutDate}
+                                onChange={handleChange}
+                                className={`w-full px-3 py-2 rounded-lg border-2 focus:outline-none transition-colors ${
+                                    errors.pullOutDate
+                                        ? 'border-red-500 focus:border-red-500'
+                                        : 'border-gray-300 focus:border-blue-500'
+                                }`}
+                            />
+                            {errors.pullOutDate && <p className="text-red-500 text-xs mt-1">{errors.pullOutDate}</p>}
+                        </div>
+
+                        {/* Remarks */}
+                        <div className="md:col-span-2 lg:col-span-1">
+                            <label htmlFor="remarks" className="block text-sm font-medium text-gray-700 mb-1">
+                                Remarks
+                            </label>
+                            <input
+                                type="text"
+                                id="remarks"
+                                name="remarks"
+                                value={formData.remarks}
+                                onChange={handleChange}
+                                placeholder="e.g., No loose, Recall"
+                                className="w-full px-3 py-2 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-blue-500 transition-colors"
+                            />
+                        </div>
+
+                        {/* Date & Signature */}
+                        <div className="md:col-span-2 lg:col-span-1">
+                            <label htmlFor="dateSignature" className="block text-sm font-medium text-gray-700 mb-1">
+                                Date & Signature
+                            </label>
+                            <input
+                                type="text"
+                                id="dateSignature"
+                                name="dateSignature"
+                                value={formData.dateSignature}
+                                onChange={handleChange}
+                                placeholder="Name and date"
+                                className="w-full px-3 py-2 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-blue-500 transition-colors"
+                            />
+                        </div>
+
+                        {/* Submit Button */}
+                        <div className="md:col-span-2 lg:col-span-1">
+                            <button
+                                type="submit"
+                                className="w-full h-[40px] mt-6 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                                Add Item
+                            </button>
+                        </div>
+                    </form>
                 </div>
-              </div>
-            </div>
-          </details>
-          <input id="backup-file" type="file" accept="text/csv,.csv" hidden />
-        </div>
-      </header>
+            );
+        }
 
-      <main class="app-main">
-        <section class="card table-card" aria-labelledby="table-title">
-          <div class="table-header">
-            <h2 id="table-title">Current Inventory</h2>
-            <button id="add-inventory-btn" class="primary-btn" type="button" aria-label="Add new inventory item">+ Add Item</button>
-          </div>
+        // InventoryItem Component
+        function InventoryItem({ item, onDelete, onUpdate, isMobile }) {
+            const [isEditing, setIsEditing] = useState(false);
+            const [editData, setEditData] = useState(item);
 
-          <div class="search-row">
-            <div class="search-label-row">
-              <label for="table-search">Search</label>
-            </div>
-            <input
-              id="table-search"
-              class="search-input"
-              type="search"
-              placeholder="Search item, expiration date, or status"
-            />
-          </div>
+            const getExpiryStatusColor = (expiryDate) => {
+                if (!expiryDate) return 'bg-gray-100 text-gray-800';
 
-          <div class="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col" aria-label="Delete checked items" class="delete-header-cell">
-                    <button id="delete-selected" class="secondary-btn" type="button" aria-label="Delete checked items" title="Delete checked items">🗑</button>
-                  </th>
-                  <th scope="col">Item Details</th>
-                  <th scope="col">Edit</th>
-                </tr>
-              </thead>
-              <tbody id="inventory-body">
-                <tr class="empty-row">
-                  <td colspan="3">No inventory items saved.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                const [month, year] = expiryDate.split('/').map(Number);
+                if (!month || !year) return 'bg-gray-100 text-gray-800';
 
-          <div class="selection-footer" aria-label="Row selection actions">
-            <button id="deselect-all" class="secondary-btn" type="button" aria-label="Deselect all checked items" title="Deselect all">☒</button>
-          </div>
+                const expiry = new Date(year, month - 1, 1);
+                const today = new Date();
+                const threeMonthsFromNow = new Date();
+                threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
 
-          <div class="pagination-row" aria-label="Table pagination">
-            <button id="prev-page" class="secondary-btn pagination-btn" type="button">Previous</button>
-            <span id="page-info" class="page-info">Page 1 of 1</span>
-            <button id="next-page" class="secondary-btn pagination-btn" type="button">Next</button>
-            <div class="pagination-secondary">
-              <div class="rows-page-controls">
-                <label for="rows-per-page" class="rows-page-label">Rows</label>
-                <select id="rows-per-page" class="rows-page-select" aria-label="Rows per page">
-                  <option value="10">10</option>
-                  <option value="15" selected>15</option>
-                  <option value="20">20</option>
-                  <option value="30">30</option>
-                  <option value="50">50</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
+                if (expiry < today) {
+                    return 'bg-red-100 text-red-800 font-bold';
+                } else if (expiry <= threeMonthsFromNow) {
+                    return 'bg-red-100 text-red-800 border-2 border-red-500';
+                } else if (expiry <= new Date(today.getFullYear(), today.getMonth() + 6)) {
+                    return 'bg-yellow-100 text-yellow-800';
+                } else {
+                    return 'bg-green-100 text-green-800';
+                }
+            };
 
-      <footer class="app-footer" role="contentinfo">
-        <p>Joanni's Inventory Tracker</p>
-      </footer>
-    </div>
+            const handleEdit = (field, value) => {
+                setEditData(prev => ({
+                    ...prev,
+                    [field]: value,
+                }));
+            };
 
-    <div id="alert-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="alert-title">
-      <div class="modal-content">
-        <h3 id="alert-title">Expiration Alert</h3>
-        <p id="alert-message"></p>
-        <div id="alert-table-wrap" class="alert-table-wrap hidden" aria-label="Expiring items table">
-          <table id="alert-table" class="alert-table">
-            <thead>
-              <tr>
-                <th scope="col">Item Name</th>
-                <th scope="col">Expiration Date</th>
-                <th scope="col">Status</th>
-              </tr>
-            </thead>
-            <tbody id="alert-table-body"></tbody>
-          </table>
-        </div>
-        <button id="close-modal" class="primary-btn" type="button">Close</button>
-      </div>
-    </div>
+            const handleSave = () => {
+                onUpdate(item.id, editData);
+                setIsEditing(false);
+            };
 
-    <div id="edit-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="edit-title">
-      <div class="modal-content">
-        <h3 id="edit-title">Edit Item</h3>
-        <div class="form-row">
-          <label for="edit-item-name">Item Name</label>
-          <input id="edit-item-name" type="text" />
-        </div>
-        <div class="form-row">
-          <label for="edit-expiration-date">Expiration Date</label>
-          <input id="edit-expiration-date" type="date" />
-        </div>
-        <div class="modal-buttons">
-          <button id="edit-save-btn" class="primary-btn" type="button">Save</button>
-          <button id="edit-cancel-btn" class="secondary-btn" type="button">Cancel</button>
-        </div>
-      </div>
-    </div>
+            if (isMobile) {
+                // Mobile Card View
+                return (
+                    <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
+                        {!isEditing ? (
+                            <>
+                                <div className="mb-3">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div>
+                                            <p className="text-xs text-gray-600 font-semibold">SKU #</p>
+                                            <p className="font-bold text-gray-900">{item.sku}</p>
+                                        </div>
+                                        <span className={`px-3 py-1 rounded text-sm font-semibold ${getExpiryStatusColor(item.expiryDate)}`}>
+                                            {item.expiryDate || 'N/A'}
+                                        </span>
+                                    </div>
+                                    <div className="mb-2">
+                                        <p className="text-xs text-gray-600 font-semibold">Description</p>
+                                        <p className="text-gray-800">{item.description}</p>
+                                    </div>
+                                    <div className="mb-2">
+                                        <p className="text-xs text-gray-600 font-semibold">Quantity</p>
+                                        <p className="text-gray-800 font-bold text-lg">{item.quantity}</p>
+                                    </div>
+                                    <div className="mb-2">
+                                        <p className="text-xs text-gray-600 font-semibold">Vendor</p>
+                                        <p className="text-gray-800">{item.vendor}</p>
+                                    </div>
+                                    <div className="mb-2">
+                                        <p className="text-xs text-gray-600 font-semibold">Return Policy</p>
+                                        <p className="text-gray-800">{item.returnPolicy}</p>
+                                    </div>
+                                    <div className="mb-2">
+                                        <p className="text-xs text-gray-600 font-semibold">Pull-out Date</p>
+                                        <p className="text-gray-800">{item.pullOutDate}</p>
+                                    </div>
+                                    {item.remarks && (
+                                        <div className="mb-2">
+                                            <p className="text-xs text-gray-600 font-semibold">Remarks</p>
+                                            <p className="text-gray-800">{item.remarks}</p>
+                                        </div>
+                                    )}
+                                    {item.dateSignature && (
+                                        <div>
+                                            <p className="text-xs text-gray-600 font-semibold">Date & Signature</p>
+                                            <p className="text-gray-800">{item.dateSignature}</p>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex gap-2 pt-3 border-t border-gray-200">
+                                    <button
+                                        onClick={() => setIsEditing(true)}
+                                        className="flex-1 px-3 py-2 bg-blue-500 text-white rounded font-medium text-sm hover:bg-blue-600 transition-colors"
+                                    >
+                                        Edit
+                                    </button>
+                                    <button
+                                        onClick={() => onDelete(item.id)}
+                                        className="flex-1 px-3 py-2 bg-red-500 text-white rounded font-medium text-sm hover:bg-red-600 transition-colors"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <EditForm
+                                editData={editData}
+                                onEdit={handleEdit}
+                                onSave={handleSave}
+                                onCancel={() => setIsEditing(false)}
+                                isMobile={true}
+                            />
+                        )}
+                    </div>
+                );
+            } else {
+                // Desktop Table Row View
+                return (
+                    <tr className="hover:bg-gray-50 transition-colors">
+                        {!isEditing ? (
+                            <>
+                                <td className="px-6 py-4 text-sm font-semibold text-gray-900">{item.sku}</td>
+                                <td className="px-6 py-4 text-sm text-gray-800">{item.description}</td>
+                                <td className="px-6 py-4 text-sm text-center text-gray-900 font-bold">{item.quantity}</td>
+                                <td className="px-6 py-4 text-center">
+                                    <span className={`px-3 py-1 rounded text-sm font-semibold ${getExpiryStatusColor(item.expiryDate)}`}>
+                                        {item.expiryDate || 'N/A'}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 text-sm text-gray-800">{item.vendor}</td>
+                                <td className="px-6 py-4 text-sm text-gray-800">{item.returnPolicy}</td>
+                                <td className="px-6 py-4 text-sm text-gray-800">{item.pullOutDate}</td>
+                                <td className="px-6 py-4 text-sm text-gray-800">{item.remarks || '-'}</td>
+                                <td className="px-6 py-4 text-sm text-gray-800">{item.dateSignature || '-'}</td>
+                                <td className="px-6 py-4 text-center text-sm">
+                                    <div className="flex gap-2 justify-center">
+                                        <button
+                                            onClick={() => setIsEditing(true)}
+                                            className="px-3 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 transition-colors"
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            onClick={() => onDelete(item.id)}
+                                            className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </>
+                        ) : (
+                            <td colSpan="10" className="px-6 py-4">
+                                <EditForm
+                                    editData={editData}
+                                    onEdit={handleEdit}
+                                    onSave={handleSave}
+                                    onCancel={() => setIsEditing(false)}
+                                    isMobile={false}
+                                />
+                            </td>
+                        )}
+                    </tr>
+                );
+            }
+        }
 
-    <div id="add-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="add-title">
-      <div class="modal-content">
-        <h3 id="add-title">Add Inventory Item</h3>
-        <div class="form-row">
-          <label for="add-item-name">Item Name</label>
-          <input id="add-item-name" type="text" placeholder="Example: Amoxicillin 250mg" />
-        </div>
-        <div class="form-row">
-          <label for="add-expiration-date">Expiration Date</label>
-          <input id="add-expiration-date" type="date" />
-        </div>
-        <div class="modal-buttons">
-          <button id="add-save-btn" class="primary-btn" type="button">Save Item</button>
-          <button id="add-cancel-btn" class="secondary-btn" type="button">Cancel</button>
-        </div>
-      </div>
-    </div>
+        // EditForm Component
+        function EditForm({ editData, onEdit, onSave, onCancel, isMobile }) {
+            if (isMobile) {
+                return (
+                    <div className="space-y-3">
+                        <input
+                            type="text"
+                            value={editData.sku}
+                            onChange={(e) => onEdit('sku', e.target.value)}
+                            placeholder="SKU #"
+                            className="w-full px-2 py-2 border rounded text-sm"
+                        />
+                        <input
+                            type="text"
+                            value={editData.description}
+                            onChange={(e) => onEdit('description', e.target.value)}
+                            placeholder="Description"
+                            className="w-full px-2 py-2 border rounded text-sm"
+                        />
+                        <input
+                            type="number"
+                            value={editData.quantity}
+                            onChange={(e) => onEdit('quantity', parseInt(e.target.value) || 0)}
+                            placeholder="QTY"
+                            className="w-full px-2 py-2 border rounded text-sm"
+                            min="0"
+                        />
+                        <input
+                            type="text"
+                            value={editData.expiryDate}
+                            onChange={(e) => onEdit('expiryDate', e.target.value)}
+                            placeholder="MM/YYYY"
+                            className="w-full px-2 py-2 border rounded text-sm"
+                        />
+                        <input
+                            type="text"
+                            value={editData.vendor}
+                            onChange={(e) => onEdit('vendor', e.target.value)}
+                            placeholder="Vendor"
+                            className="w-full px-2 py-2 border rounded text-sm"
+                        />
+                        <input
+                            type="text"
+                            value={editData.returnPolicy}
+                            onChange={(e) => onEdit('returnPolicy', e.target.value)}
+                            placeholder="Return Policy"
+                            className="w-full px-2 py-2 border rounded text-sm"
+                        />
+                        <input
+                            type="date"
+                            value={editData.pullOutDate}
+                            onChange={(e) => onEdit('pullOutDate', e.target.value)}
+                            className="w-full px-2 py-2 border rounded text-sm"
+                        />
+                        <input
+                            type="text"
+                            value={editData.remarks}
+                            onChange={(e) => onEdit('remarks', e.target.value)}
+                            placeholder="Remarks"
+                            className="w-full px-2 py-2 border rounded text-sm"
+                        />
+                        <input
+                            type="text"
+                            value={editData.dateSignature}
+                            onChange={(e) => onEdit('dateSignature', e.target.value)}
+                            placeholder="Date & Signature"
+                            className="w-full px-2 py-2 border rounded text-sm"
+                        />
+                        <div className="flex gap-2 pt-2">
+                            <button
+                                onClick={onSave}
+                                className="flex-1 px-3 py-2 bg-green-500 text-white rounded font-medium text-sm hover:bg-green-600 transition-colors"
+                            >
+                                Save
+                            </button>
+                            <button
+                                onClick={onCancel}
+                                className="flex-1 px-3 py-2 bg-gray-400 text-white rounded font-medium text-sm hover:bg-gray-500 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                );
+            } else {
+                return (
+                    <div className="space-y-2">
+                        <div className="grid grid-cols-5 gap-2">
+                            <input
+                                type="text"
+                                value={editData.sku}
+                                onChange={(e) => onEdit('sku', e.target.value)}
+                                placeholder="SKU #"
+                                className="px-2 py-1 border rounded text-sm"
+                            />
+                            <input
+                                type="text"
+                                value={editData.description}
+                                onChange={(e) => onEdit('description', e.target.value)}
+                                placeholder="Description"
+                                className="px-2 py-1 border rounded text-sm"
+                            />
+                            <input
+                                type="number"
+                                value={editData.quantity}
+                                onChange={(e) => onEdit('quantity', parseInt(e.target.value) || 0)}
+                                placeholder="QTY"
+                                className="px-2 py-1 border rounded text-sm text-center"
+                                min="0"
+                            />
+                            <input
+                                type="text"
+                                value={editData.expiryDate}
+                                onChange={(e) => onEdit('expiryDate', e.target.value)}
+                                placeholder="MM/YYYY"
+                                className="px-2 py-1 border rounded text-sm text-center"
+                            />
+                            <input
+                                type="text"
+                                value={editData.vendor}
+                                onChange={(e) => onEdit('vendor', e.target.value)}
+                                placeholder="Vendor"
+                                className="px-2 py-1 border rounded text-sm"
+                            />
+                        </div>
+                        <div className="grid grid-cols-5 gap-2">
+                            <input
+                                type="text"
+                                value={editData.returnPolicy}
+                                onChange={(e) => onEdit('returnPolicy', e.target.value)}
+                                placeholder="Return Policy"
+                                className="px-2 py-1 border rounded text-sm"
+                            />
+                            <input
+                                type="date"
+                                value={editData.pullOutDate}
+                                onChange={(e) => onEdit('pullOutDate', e.target.value)}
+                                className="px-2 py-1 border rounded text-sm"
+                            />
+                            <input
+                                type="text"
+                                value={editData.remarks}
+                                onChange={(e) => onEdit('remarks', e.target.value)}
+                                placeholder="Remarks"
+                                className="px-2 py-1 border rounded text-sm"
+                            />
+                            <input
+                                type="text"
+                                value={editData.dateSignature}
+                                onChange={(e) => onEdit('dateSignature', e.target.value)}
+                                placeholder="Date & Signature"
+                                className="px-2 py-1 border rounded text-sm"
+                            />
+                            <div className="flex gap-1">
+                                <button
+                                    onClick={onSave}
+                                    className="flex-1 px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition-colors"
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    onClick={onCancel}
+                                    className="flex-1 px-2 py-1 bg-gray-400 text-white rounded text-xs hover:bg-gray-500 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+        }
 
-    <script src="script.js"></script>
-  </body>
+        // InventoryList Component
+        function InventoryList({ items, onDeleteItem, onUpdateItem }) {
+            return (
+                <div>
+                    {/* Mobile View - Cards */}
+                    <div className="mobile-only space-y-4">
+                        {items.map(item => (
+                            <InventoryItem
+                                key={item.id}
+                                item={item}
+                                onDelete={onDeleteItem}
+                                onUpdate={onUpdateItem}
+                                isMobile={true}
+                            />
+                        ))}
+                    </div>
+
+                    {/* Desktop View - Table */}
+                    <div className="desktop-only overflow-x-auto bg-white rounded-lg shadow">
+                        <table className="w-full">
+                            <thead className="bg-gray-100 border-b-2 border-gray-300">
+                                <tr>
+                                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">SKU #</th>
+                                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Description</th>
+                                    <th className="px-6 py-4 text-center text-sm font-bold text-gray-900">QTY</th>
+                                    <th className="px-6 py-4 text-center text-sm font-bold text-gray-900">E.D.</th>
+                                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Vendor</th>
+                                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Return Policy</th>
+                                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Pull-out Date</th>
+                                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Remarks</th>
+                                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Date & Signature</th>
+                                    <th className="px-6 py-4 text-center text-sm font-bold text-gray-900">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {items.map(item => (
+                                    <InventoryItem
+                                        key={item.id}
+                                        item={item}
+                                        onDelete={onDeleteItem}
+                                        onUpdate={onUpdateItem}
+                                        isMobile={false}
+                                    />
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+
+        // Main App Component
+        function App() {
+            const [items, setItems] = useState([]);
+            const [searchTerm, setSearchTerm] = useState('');
+            const [filterActive, setFilterActive] = useState(false);
+
+            // Load items from localStorage on mount
+            useEffect(() => {
+                const savedItems = localStorage.getItem('pharmacyInventory');
+                if (savedItems) {
+                    try {
+                        setItems(JSON.parse(savedItems));
+                    } catch (error) {
+                        console.error('Error loading items:', error);
+                    }
+                }
+            }, []);
+
+            // Save items to localStorage whenever they change
+            useEffect(() => {
+                localStorage.setItem('pharmacyInventory', JSON.stringify(items));
+            }, [items]);
+
+            const handleAddItem = (newItem) => {
+                setItems([...items, { ...newItem, id: Date.now() }]);
+            };
+
+            const handleDeleteItem = (id) => {
+                setItems(items.filter(item => item.id !== id));
+            };
+
+            const handleUpdateItem = (id, updatedItem) => {
+                setItems(items.map(item =>
+                    item.id === id ? { ...item, ...updatedItem } : item
+                ));
+            };
+
+            // Filter items based on search term
+            const filteredItems = items.filter(item => {
+                const searchLower = searchTerm.toLowerCase();
+                return (
+                    item.description.toLowerCase().includes(searchLower) ||
+                    item.sku.toLowerCase().includes(searchLower)
+                );
+            });
+
+            // Filter items expiring soon (within 3 months)
+            const getExpiryDateAsDate = (expiryDate) => {
+                if (!expiryDate) return null;
+                const [month, year] = expiryDate.split('/').map(Number);
+                if (!month || !year) return null;
+                return new Date(year, month - 1, 1);
+            };
+
+            const itemsExpiringWithin3Months = items.filter(item => {
+                const expiryDate = getExpiryDateAsDate(item.expiryDate);
+                if (!expiryDate) return false;
+
+                const today = new Date();
+                const threeMonthsFromNow = new Date();
+                threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
+
+                return expiryDate >= today && expiryDate <= threeMonthsFromNow;
+            });
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    {/* Header */}
+                    <header className="sticky top-0 z-40 bg-white shadow-md">
+                        <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-gray-900">
+                                        Pharmacy Inventory Tracker
+                                    </h1>
+                                    <p className="text-gray-600 mt-1">Manage pharmaceutical inventory and expiration dates</p>
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                    Total Items: <span className="font-bold text-lg text-blue-600">{items.length}</span>
+                                    {itemsExpiringWithin3Months.length > 0 && (
+                                        <div className="text-red-600 font-semibold mt-2">
+                                            ⚠️ {itemsExpiringWithin3Months.length} expiring soon
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+                        {/* Search and Filter Section */}
+                        <div className="mb-8 flex flex-col sm:flex-row gap-4">
+                            <div className="flex-1">
+                                <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+                            </div>
+                            <button
+                                onClick={() => setFilterActive(!filterActive)}
+                                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                                    filterActive
+                                        ? 'bg-red-100 text-red-700'
+                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                            >
+                                {filterActive ? '🔴 Expiring Soon' : 'Show All'}
+                            </button>
+                        </div>
+
+                        {/* Form Section */}
+                        <div className="mb-8">
+                            <InventoryForm onAddItem={handleAddItem} />
+                        </div>
+
+                        {/* List Section */}
+                        <div>
+                            {filteredItems.length === 0 && items.length === 0 ? (
+                                <div className="text-center py-16 bg-white rounded-lg shadow">
+                                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No items yet</h3>
+                                    <p className="text-gray-600">Add your first pharmaceutical item using the form above.</p>
+                                </div>
+                            ) : filteredItems.length === 0 ? (
+                                <div className="text-center py-16 bg-white rounded-lg shadow">
+                                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No items found</h3>
+                                    <p className="text-gray-600">Try adjusting your search term.</p>
+                                </div>
+                            ) : (
+                                <InventoryList
+                                    items={filterActive ? itemsExpiringWithin3Months : filteredItems}
+                                    onDeleteItem={handleDeleteItem}
+                                    onUpdateItem={handleUpdateItem}
+                                />
+                            )}
+                        </div>
+                    </main>
+                </div>
+            );
+        }
+
+        // Render App
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
 </html>
