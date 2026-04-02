@@ -145,15 +145,14 @@ export default function InventoryForm({ onAddItem }) {
         {/* Expiry Date */}
         <div>
           <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700 mb-1">
-            E.D. (MM/YYYY)
+            Expiry Date
           </label>
           <input
-            type="text"
+            type="date"
             id="expiryDate"
             name="expiryDate"
             value={formData.expiryDate}
             onChange={handleChange}
-            placeholder="MM/YYYY"
             className={`w-full px-3 py-2 rounded-lg border-2 focus:outline-none transition-colors ${
               errors.expiryDate
                 ? 'border-red-500 focus:border-red-500'

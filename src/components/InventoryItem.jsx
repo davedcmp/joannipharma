@@ -6,11 +6,23 @@ export default function InventoryItem({ item, onDelete, onUpdate, isMobile }) {
 
   const getExpiryStatusColor = (expiryDate) => {
     if (!expiryDate) return 'bg-gray-100 text-gray-800'
-    
-    const [month, year] = expiryDate.split('/').map(Number)
-    if (!month || !year) return 'bg-gray-100 text-gray-800'
-    
-    const expiry = new Date(year, month - 1, 1)
+
+    let expiry = null
+    if (expiryDate.includes('/')) {
+      // Backward compatibility for older MM/YYYY data.
+      const [month, year] = expiryDate.split('/').map(Number)
+      if (month && year) {
+        expiry = new Date(year, month - 1, 1)
+      }
+    } else {
+      const parsedDate = new Date(expiryDate)
+      if (!Number.isNaN(parsedDate.getTime())) {
+        expiry = parsedDate
+      }
+    }
+
+    if (!expiry) return 'bg-gray-100 text-gray-800'
+
     const today = new Date()
     const threeMonthsFromNow = new Date()
     threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3)
@@ -192,10 +204,9 @@ function EditForm({ editData, onEdit, onSave, onCancel, isMobile }) {
           min="0"
         />
         <input
-          type="text"
+          type="date"
           value={editData.expiryDate}
           onChange={(e) => onEdit('expiryDate', e.target.value)}
-          placeholder="MM/YYYY"
           className="w-full px-2 py-2 border rounded text-sm"
         />
         <input
@@ -275,10 +286,9 @@ function EditForm({ editData, onEdit, onSave, onCancel, isMobile }) {
             min="0"
           />
           <input
-            type="text"
+            type="date"
             value={editData.expiryDate}
             onChange={(e) => onEdit('expiryDate', e.target.value)}
-            placeholder="MM/YYYY"
             className="px-2 py-1 border rounded text-sm text-center"
           />
           <input

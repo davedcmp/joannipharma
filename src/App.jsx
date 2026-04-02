@@ -62,9 +62,15 @@ export default function App() {
 
   const getExpiryDateAsDate = (expiryDate) => {
     if (!expiryDate) return null
-    const [month, year] = expiryDate.split('/').map(Number)
-    if (!month || !year) return null
-    return new Date(year, month - 1, 1)
+
+    if (expiryDate.includes('/')) {
+      const [month, year] = expiryDate.split('/').map(Number)
+      if (!month || !year) return null
+      return new Date(year, month - 1, 1)
+    }
+
+    const parsedDate = new Date(expiryDate)
+    return Number.isNaN(parsedDate.getTime()) ? null : parsedDate
   }
 
   return (
