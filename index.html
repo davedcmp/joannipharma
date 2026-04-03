@@ -1,1 +1,200 @@
-Hello
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+	<title>Joanni Pharma</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="style.css">
+</head>
+<body>
+	<div class="app-shell">
+		<header class="app-header">
+			<div class="header-left">
+				<button id="menuToggleBtn" class="menu-toggle" type="button" aria-label="Open main menu" aria-expanded="false" aria-controls="mainMenuPanel">
+					<span></span>
+					<span></span>
+					<span></span>
+				</button>
+				<div>
+				<p class="kicker">Pharmaceutical Operations</p>
+				<h1>Joanni Pharma Console</h1>
+				</div>
+			</div>
+			<button id="homeBtn" class="ghost-btn" type="button">Dashboard</button>
+		</header>
+
+		<button id="menuBackdrop" class="menu-backdrop" type="button" aria-hidden="true" tabindex="-1" hidden></button>
+
+		<main class="main-layout">
+			<aside id="mainMenuPanel" class="menu-panel" aria-label="Main menu">
+				<h2>Main Menu</h2>
+
+				<details open>
+					<summary>Maintenance</summary>
+					<button id="openVendorBtn" type="button" class="menu-link close-menu-link">Vendor Maintenance</button>
+					<button id="openItemBtn" type="button" class="menu-link close-menu-link">Item Maintenance</button>
+				</details>
+
+				<details open>
+					<summary>Data</summary>
+					<button id="exportCsvBtn" type="button" class="menu-link close-menu-link">Export CSV</button>
+					<button id="importCsvBtn" type="button" class="menu-link close-menu-link">Import CSV</button>
+					<input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
+				</details>
+			</aside>
+
+			<section id="dashboardSection" class="content-section">
+				<div class="section-header">
+					<h2>Dashboard</h2>
+					<button id="newInventoryBtn" class="primary-btn" type="button">Add Inventory Row</button>
+				</div>
+
+				<div class="table-wrap card">
+					<table>
+						<thead>
+							<tr>
+								<th>SKU#</th>
+								<th>Description / Vendor</th>
+								<th>Qty</th>
+								<th>Expiry Date</th>
+								<th>Return Policy</th>
+								<th>Pull-out Date</th>
+								<th>Remarks</th>
+								<th>Comment</th>
+								<th>Actions</th>
+							</tr>
+						</thead>
+						<tbody id="dashboardRows"></tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="vendorSection" class="content-section" hidden>
+				<div class="section-header">
+					<h2>Vendor Maintenance</h2>
+					<button id="closeVendorSectionBtn" class="ghost-btn" type="button">Close</button>
+				</div>
+
+				<form id="vendorForm" class="card form-card">
+					<h3>Add / Edit Vendor</h3>
+					<input id="vendorId" type="hidden">
+
+					<label for="vendorName">Name</label>
+					<input id="vendorName" type="text" maxlength="80" required>
+
+					<div class="form-actions">
+						<button type="submit" class="primary-btn">Save Vendor</button>
+						<button type="button" id="cancelVendorBtn" class="ghost-btn">Cancel</button>
+					</div>
+				</form>
+
+				<div class="table-wrap card">
+					<table>
+						<thead>
+							<tr>
+								<th>Name</th>
+								<th>Actions</th>
+							</tr>
+						</thead>
+						<tbody id="vendorRows"></tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="itemSection" class="content-section" hidden>
+				<div class="section-header">
+					<h2>Item Maintenance</h2>
+					<button id="closeItemSectionBtn" class="ghost-btn" type="button">Close</button>
+				</div>
+
+				<form id="itemForm" class="card form-card">
+					<h3>Add / Edit Item</h3>
+					<input id="itemId" type="hidden">
+
+					<label for="itemSku">SKU#</label>
+					<input id="itemSku" type="text" maxlength="40" required>
+
+					<label for="itemDescription">Description</label>
+					<input id="itemDescription" type="text" maxlength="150" required>
+
+					<label for="itemVendor">Vendor</label>
+					<select id="itemVendor" required></select>
+
+					<label for="itemPolicyType">Return Policy</label>
+					<select id="itemPolicyType" required>
+						<option value="months_before_expiry">By number of months</option>
+						<option value="expiry_month">On the month of expiry</option>
+					</select>
+
+					<label for="itemPolicyMonths">Months before expiry</label>
+					<input id="itemPolicyMonths" type="number" min="0" step="1" value="0">
+
+					<div class="form-actions">
+						<button type="submit" class="primary-btn">Save Item</button>
+						<button type="button" id="cancelItemBtn" class="ghost-btn">Cancel</button>
+					</div>
+				</form>
+
+				<div class="table-wrap card">
+					<table>
+						<thead>
+							<tr>
+								<th>SKU#</th>
+								<th>Description</th>
+								<th>Vendor</th>
+								<th>Return Policy</th>
+								<th>Actions</th>
+							</tr>
+						</thead>
+						<tbody id="itemRows"></tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+	</div>
+
+	<div id="inventoryModal" class="modal-overlay" hidden>
+		<form id="inventoryForm" class="card form-card modal-form">
+			<div class="modal-head">
+				<h3>Inventory Entry</h3>
+				<button type="button" id="closeInventoryModalBtn" class="ghost-btn modal-close" aria-label="Close">Close</button>
+			</div>
+			<input id="inventoryId" type="hidden">
+
+			<label for="inventoryItem">Item</label>
+			<input id="inventoryItemInput" type="text" list="inventoryItemList" placeholder="Type SKU or description" autocomplete="off" required>
+			<datalist id="inventoryItemList"></datalist>
+			<input id="inventoryItem" type="hidden" required>
+
+			<label for="inventoryQty">Quantity</label>
+			<input id="inventoryQty" type="number" min="0" step="1" required>
+
+			<label for="inventoryExpiry">Expiry Date</label>
+			<input id="inventoryExpiry" type="date" required>
+
+			<label for="inventoryPullout">Pull-out Date</label>
+			<input id="inventoryPullout" type="date">
+
+			<label for="inventoryRemarks">Remarks</label>
+			<select id="inventoryRemarks" required>
+				<option value="Yes, Intact">Yes, Intact</option>
+				<option value="Yes, Loose">Yes, Loose</option>
+				<option value="No, Loose">No, Loose</option>
+			</select>
+
+			<label for="inventoryComment">Comment</label>
+			<textarea id="inventoryComment" rows="2" placeholder="Add comment"></textarea>
+
+			<div class="form-actions">
+				<button type="submit" class="primary-btn">Save</button>
+				<button type="button" id="cancelInventoryBtn" class="ghost-btn">Cancel</button>
+			</div>
+		</form>
+	</div>
+
+	<script src="script.js"></script>
+</body>
+</html>
