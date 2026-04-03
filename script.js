@@ -10,7 +10,8 @@ const state = {
 	vendors: readStore(STORAGE_KEYS.vendors),
 	items: readStore(STORAGE_KEYS.items),
 	inventory: readStore(STORAGE_KEYS.inventory),
-	dashboardSearch: ""
+	dashboardSearch: "",
+	inventoryDrafts: new Map()
 };
 
 const inventoryCombo = {
@@ -148,8 +149,8 @@ function bindEvents() {
 	});
 	refs.exportExcelBtn.addEventListener("click", exportDashboardExcel);
 	refs.dashboardRows.addEventListener("click", onDashboardTableClick);
+	refs.dashboardRows.addEventListener("input", onDashboardTableInput);
 	refs.dashboardRows.addEventListener("change", onDashboardTableChange);
-	refs.dashboardRows.addEventListener("focusout", onDashboardTableFocusOut);
 	refs.inventoryForm.addEventListener("submit", onSaveInventory);
 	refs.inventoryItemInput.addEventListener("input", onInventoryItemTyped);
 	refs.inventoryItemInput.addEventListener("change", onInventoryItemTyped);
@@ -278,6 +279,16 @@ function onDashboardTableClick(event) {
 	}
 
 	const { action, id } = button.dataset;
+	if (action === "save-inline-inventory") {
+		saveInventoryInlineEdits(id);
+		return;
+	}
+
+	if (action === "cancel-inline-inventory") {
+		cancelInventoryInlineEdits(id);
+		return;
+	}
+
 	if (action === "edit-inventory") {
 		editInventory(id);
 		return;
@@ -296,23 +307,18 @@ function onDashboardTableChange(event) {
 	}
 
 	if (field === "remarks") {
-		updateInventoryInlineField(id, field, event.target.value);
-		return;
-	}
-
-	if (field === "comment") {
-		updateInventoryInlineField(id, field, event.target.value.trim());
+		stageInventoryInlineField(id, field, event.target.value);
 	}
 }
 
-function onDashboardTableFocusOut(event) {
+function onDashboardTableInput(event) {
 	const field = event.target.dataset.inlineField;
 	const id = event.target.dataset.id;
 	if (field !== "comment" || !id) {
 		return;
 	}
 
-	updateInventoryInlineField(id, field, event.target.value.trim());
+	stageInventoryInlineField(id, field, event.target.value, { rerenderIfNeeded: true });
 }
 
 function onSaveVendor(event) {
@@ -513,18 +519,104 @@ function editInventory(id) {
 
 function deleteInventory(id) {
 	state.inventory = state.inventory.filter((entry) => entry.id !== id);
+	state.inventoryDrafts.delete(id);
 	persist("inventory");
 	renderDashboardRows();
 }
 
-function updateInventoryInlineField(id, field, value) {
+function stageInventoryInlineField(id, field, value, options = {}) {
+	const { rerenderIfNeeded = true } = options;
 	const row = state.inventory.find((entry) => entry.id === id);
 	if (!row) {
 		return;
 	}
+	const hadDraft = state.inventoryDrafts.has(id);
 
-	row[field] = value;
+	const draft = state.inventoryDrafts.get(id) || {
+		remarks: row.remarks || "",
+		comment: row.comment || ""
+	};
+
+	draft[field] = value;
+
+	const hasChanges = (draft.remarks || "") !== (row.remarks || "")
+		|| (draft.comment || "") !== (row.comment || "");
+
+	if (hasChanges) {
+		state.inventoryDrafts.set(id, {
+			remarks: draft.remarks || "",
+			comment: draft.comment || ""
+		});
+	} else {
+		state.inventoryDrafts.delete(id);
+	}
+
+	if (rerenderIfNeeded) {
+		const hasDraft = state.inventoryDrafts.has(id);
+		if (hadDraft !== hasDraft) {
+			updateDashboardRowActionButtons(id, hasDraft);
+		}
+	}
+}
+
+function updateDashboardRowActionButtons(id, isInlineEditing) {
+	const actionCell = refs.dashboardRows.querySelector(`td.actions[data-row-actions-id="${id}"]`);
+	if (!actionCell) {
+		return;
+	}
+
+	actionCell.innerHTML = buildDashboardRowActions(id, isInlineEditing);
+}
+
+function buildDashboardRowActions(id, isInlineEditing) {
+	return isInlineEditing
+		? `
+			<button type="button" data-action="save-inline-inventory" data-id="${id}" class="icon-btn" aria-label="Save inline changes" title="Save">
+				<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+					<path d="M9.55 18.2 3.9 12.55l1.4-1.4 4.25 4.25L18.7 6.25l1.4 1.4-10.55 10.55Z"/>
+				</svg>
+			</button>
+			<button type="button" data-action="cancel-inline-inventory" data-id="${id}" class="icon-btn danger" aria-label="Cancel inline changes" title="Cancel">
+				<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+					<path d="M18.3 5.71 12 12.01l-6.3-6.3-1.41 1.41 6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.3 6.3 1.41-1.41-6.3-6.3 6.3-6.3-1.41-1.41Z"/>
+				</svg>
+			</button>
+		`
+		: `
+			<button type="button" data-action="edit-inventory" data-id="${id}" class="icon-btn" aria-label="Edit inventory row" title="Edit">
+				<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+					<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.96 1.96 3.75 3.75 2.13-1.79Z"/>
+				</svg>
+			</button>
+			<button type="button" data-action="delete-inventory" data-id="${id}" class="icon-btn danger" aria-label="Delete inventory row" title="Delete">
+				<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+					<path d="M9 3h6l1 2h5v2H3V5h5l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM6 9h2v9H6V9Zm1 12a2 2 0 0 1-2-2V8h14v11a2 2 0 0 1-2 2H7Z"/>
+				</svg>
+			</button>
+		`;
+}
+
+function saveInventoryInlineEdits(id) {
+	const row = state.inventory.find((entry) => entry.id === id);
+	const draft = state.inventoryDrafts.get(id);
+	if (!row || !draft) {
+		return;
+	}
+
+	row.remarks = draft.remarks || "";
+	row.comment = draft.comment || "";
+	state.inventoryDrafts.delete(id);
 	persist("inventory");
+	renderDashboardRows();
+}
+
+function cancelInventoryInlineEdits(id) {
+	if (!state.inventoryDrafts.has(id)) {
+		return;
+	}
+
+	state.inventoryDrafts.delete(id);
+	renderDashboardRows();
 }
 
 function resetInventoryForm() {
@@ -579,6 +671,10 @@ function renderDashboardRows() {
 
 	for (const entry of dashboardEntries) {
 		const { row, item, vendorName, pulloutDate, policyParts, rowStatus } = entry;
+		const draft = state.inventoryDrafts.get(row.id);
+		const inlineRemarks = draft ? draft.remarks : (row.remarks || "");
+		const inlineComment = draft ? draft.comment : (row.comment || "");
+		const isInlineEditing = Boolean(draft);
 		const tr = document.createElement("tr");
 		if (rowStatus === "expired") {
 			tr.classList.add("row-expired");
@@ -604,26 +700,17 @@ function renderDashboardRows() {
 			<td>${formatMonthYear(pulloutDate)}</td>
 			<td>
 				<select class="dashboard-inline-select" data-inline-field="remarks" data-id="${row.id}" aria-label="Edit remarks">
-					<option value="" ${row.remarks ? "" : "selected"}></option>
-					<option value="Yes, Intact" ${row.remarks === "Yes, Intact" ? "selected" : ""}>Yes, Intact</option>
-					<option value="Yes, Loose" ${row.remarks === "Yes, Loose" ? "selected" : ""}>Yes, Loose</option>
-					<option value="No, Loose" ${row.remarks === "No, Loose" ? "selected" : ""}>No, Loose</option>
+					<option value="" ${inlineRemarks ? "" : "selected"}></option>
+					<option value="Yes, Intact" ${inlineRemarks === "Yes, Intact" ? "selected" : ""}>Yes, Intact</option>
+					<option value="Yes, Loose" ${inlineRemarks === "Yes, Loose" ? "selected" : ""}>Yes, Loose</option>
+					<option value="No, Loose" ${inlineRemarks === "No, Loose" ? "selected" : ""}>No, Loose</option>
 				</select>
 			</td>
 			<td>
-				<textarea class="dashboard-inline-comment" data-inline-field="comment" data-id="${row.id}" rows="1">${escapeHtml(row.comment || "")}</textarea>
+				<textarea class="dashboard-inline-comment" data-inline-field="comment" data-id="${row.id}" rows="1">${escapeHtml(inlineComment)}</textarea>
 			</td>
-			<td class="actions">
-				<button type="button" data-action="edit-inventory" data-id="${row.id}" class="icon-btn" aria-label="Edit inventory row" title="Edit">
-					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-						<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.96 1.96 3.75 3.75 2.13-1.79Z"/>
-					</svg>
-				</button>
-				<button type="button" data-action="delete-inventory" data-id="${row.id}" class="icon-btn danger" aria-label="Delete inventory row" title="Delete">
-					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-						<path d="M9 3h6l1 2h5v2H3V5h5l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM6 9h2v9H6V9Zm1 12a2 2 0 0 1-2-2V8h14v11a2 2 0 0 1-2 2H7Z"/>
-					</svg>
-				</button>
+			<td class="actions" data-row-actions-id="${row.id}">
+				${buildDashboardRowActions(row.id, isInlineEditing)}
 			</td>
 		`;
 		refs.dashboardRows.appendChild(tr);
