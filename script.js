@@ -68,17 +68,6 @@ function initializeApp() {
   nextPageBtn.addEventListener("click", onNextPageClick);
   rowsPerPageSelect.addEventListener("change", onRowsPerPageChange);
 
-  const mainMenuDetails = document.querySelector(".main-menu");
-  if (mainMenuDetails) {
-    document.addEventListener("click", (event) => {
-      const target = event.target;
-      if (!mainMenuDetails.open || !(target instanceof Node)) return;
-      if (!mainMenuDetails.contains(target)) {
-        mainMenuDetails.open = false;
-      }
-    });
-  }
-
   rowsPerPage = Number.parseInt(rowsPerPageSelect.value, 10) || DEFAULT_ROWS_PER_PAGE;
 }
 
