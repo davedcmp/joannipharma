@@ -1,0 +1,10 @@
+{
+  "name": "expiration-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Expiration Tracker with file-based persistence",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

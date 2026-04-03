@@ -1,169 +1,137 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes, maximum-scale=5" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Joanni's Inventory" />
-    <meta name="theme-color" content="#1a73a8" />
-    <title>Joanni's Inventory Tracker</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div class="app-shell">
-      <header class="app-header">
-        <div class="header-top-row">
-          <div>
-            <h1>Joanni's Inventory Tracker</h1>
-          </div>
-          <details class="main-menu" aria-label="Main menu">
-            <summary class="main-menu-trigger" aria-label="Open main menu" title="Main menu">☰</summary>
-            <div class="main-menu-content">
-              <div class="main-menu-group">
-                <h3>Backup and Restore</h3>
-                <p>Export your records as CSV and import the CSV backup later if browser data is cleared.</p>
-                <div class="backup-actions">
-                  <button id="export-backup" class="secondary-btn" type="button">Export CSV</button>
-                  <button id="import-backup" class="secondary-btn" type="button">Import CSV</button>
-                </div>
-              </div>
-              <div class="main-menu-group">
-                <h3>Reports</h3>
-                <p>Export the currently filtered inventory list to a CSV report.</p>
-                <div class="backup-actions">
-                  <button id="generate-report" class="secondary-btn" type="button">Generate Report</button>
-                </div>
-              </div>
-            </div>
-          </details>
-          <input id="backup-file" type="file" accept="text/csv,.csv" hidden />
-        </div>
-      </header>
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+	<title>Expiration Tracker</title>
+	<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+	<button id="menu-button" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="side-menu">
+		<span aria-hidden="true"></span>
+		<span aria-hidden="true"></span>
+		<span aria-hidden="true"></span>
+	</button>
+	<button id="menu-overlay" type="button" aria-label="Close menu"></button>
+	<aside id="side-menu" aria-label="Main menu">
+		<nav>
+			<h2>Menu</h2>
+			<ul>
+				<li class="has-submenu">
+					<button type="button" class="submenu-toggle" aria-expanded="false" aria-controls="maintenance-submenu">Maintenance</button>
+					<ul id="maintenance-submenu" class="submenu" aria-label="Maintenance submenu">
+						<li><button id="inventory-menu-item" type="button">Inventory</button></li>
+						<li><button id="vendor-menu-item" type="button">Vendor</button></li>
+					</ul>
+				</li>
+			</ul>
+		</nav>
+	</aside>
+	<main id="app" aria-label="Application root">
+		<section id="main-grid-view" class="content-view" aria-label="Inventory main grid">
+			<div class="main-grid-card">
+				<div class="main-grid-header">
+					<h2>Inventory</h2>
+					<button id="add-inventory-btn" type="button" class="add-btn" aria-label="Add new inventory item">+</button>
+				</div>
+				<div class="main-grid-scroll">
+					<table class="main-grid-table">
+						<thead>
+							<tr>
+								<th scope="col"></th>
+								<th scope="col">SKU#</th>
+								<th scope="col">Description</th>
+								<th scope="col">Quantity</th>
+								<th scope="col">Return Policy</th>
+								<th scope="col">Expiry Date</th>
+								<th scope="col">Pull-out Date</th>
+								<th scope="col">Remarks</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td colspan="8" class="main-grid-empty">No records yet.</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</section>
+		<section id="inventory-view" class="content-view" hidden>
+			<div class="form-card">
+				<div class="form-card-head">
+					<h1>Inventory Details</h1>
+					<button id="inventory-view-close" class="close-icon" type="button" aria-label="Close inventory form"></button>
+				</div>
+				<form id="inventory-form" novalidate autocomplete="off">
+					<label for="inventory-sku">SKU#</label>
+					<input id="inventory-sku" name="skuNumber" type="text" autocomplete="off" />
 
-      <main class="app-main">
-        <section class="card table-card" aria-labelledby="table-title">
-          <div class="table-header">
-            <h2 id="table-title">Current Inventory</h2>
-            <button id="add-inventory-btn" class="primary-btn" type="button" aria-label="Add new inventory item">+ Add Item</button>
-          </div>
+					<label for="inventory-description">Description</label>
+					<input id="inventory-description" name="description" type="text" autocomplete="off" />
 
-          <div class="search-row">
-            <div class="search-label-row">
-              <label for="table-search">Search</label>
-            </div>
-            <input
-              id="table-search"
-              class="search-input"
-              type="search"
-              placeholder="Search item, expiration date, or status"
-            />
-          </div>
+					<label for="inventory-vendor">Vendor</label>
+					<select id="inventory-vendor" name="vendor">
+						<option value="">Select a vendor</option>
+					</select>
 
-          <div class="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col" aria-label="Delete checked items" class="delete-header-cell">
-                    <button id="delete-selected" class="secondary-btn" type="button" aria-label="Delete checked items" title="Delete checked items">🗑</button>
-                  </th>
-                  <th scope="col">Item Details</th>
-                  <th scope="col">Edit</th>
-                </tr>
-              </thead>
-              <tbody id="inventory-body">
-                <tr class="empty-row">
-                  <td colspan="3">No inventory items saved.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+					<label for="inventory-return-policy-lead">Return Policy</label>
+					<div class="policy-input-row">
+						<input id="inventory-return-policy-lead" name="returnPolicyLead" type="number" inputmode="numeric" min="1" step="1" aria-label="Return policy lead time" autocomplete="off" />
+						<select id="inventory-return-policy-type" name="returnPolicyType" aria-label="Return policy type">
+							<option value="">Select policy</option>
+							<option value="month before">Month before</option>
+							<option value="month of expiry">Month of expiry</option>
+						</select>
+					</div>
+					<button type="submit" class="primary-action">Save</button>
+				</form>
+				<section class="saved-inventory" aria-labelledby="saved-inventory-title">
+					<div class="saved-inventory-header">
+						<h2 id="saved-inventory-title">Saved Inventory</h2>
+						<input id="inventory-search" type="search" aria-label="Search saved inventory" autocomplete="off" />
+					</div>
+					<p id="inventory-empty-state">No items saved yet.</p>
+					<ul id="inventory-list"></ul>
+				</section>
+			</div>
+		</section>
+		<section id="vendor-view" class="content-view" hidden>
+			<div class="form-card">
+				<div class="form-card-head">
+					<h1>Vendor Details</h1>
+					<button id="vendor-view-close" class="close-icon" type="button" aria-label="Close vendor form"></button>
+				</div>
+				<form id="vendor-form" novalidate>
+					<label for="vendor-name">Vendor Name</label>
+					<input id="vendor-name" name="vendorName" type="text" autocomplete="off" />
 
-          <div class="selection-footer" aria-label="Row selection actions">
-            <button id="deselect-all" class="secondary-btn" type="button" aria-label="Deselect all checked items" title="Deselect all">☒</button>
-          </div>
-
-          <div class="pagination-row" aria-label="Table pagination">
-            <button id="prev-page" class="secondary-btn pagination-btn" type="button">Previous</button>
-            <span id="page-info" class="page-info">Page 1 of 1</span>
-            <button id="next-page" class="secondary-btn pagination-btn" type="button">Next</button>
-            <div class="pagination-secondary">
-              <div class="rows-page-controls">
-                <label for="rows-per-page" class="rows-page-label">Rows</label>
-                <select id="rows-per-page" class="rows-page-select" aria-label="Rows per page">
-                  <option value="10">10</option>
-                  <option value="15" selected>15</option>
-                  <option value="20">20</option>
-                  <option value="30">30</option>
-                  <option value="50">50</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <footer class="app-footer" role="contentinfo">
-        <p>Joanni's Inventory Tracker</p>
-      </footer>
-    </div>
-
-    <div id="alert-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="alert-title">
-      <div class="modal-content">
-        <h3 id="alert-title">Expiration Alert</h3>
-        <p id="alert-message"></p>
-        <div id="alert-table-wrap" class="alert-table-wrap hidden" aria-label="Expiring items table">
-          <table id="alert-table" class="alert-table">
-            <thead>
-              <tr>
-                <th scope="col">Item Name</th>
-                <th scope="col">Expiration Date</th>
-                <th scope="col">Status</th>
-              </tr>
-            </thead>
-            <tbody id="alert-table-body"></tbody>
-          </table>
-        </div>
-        <button id="close-modal" class="primary-btn" type="button">Close</button>
-      </div>
-    </div>
-
-    <div id="edit-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="edit-title">
-      <div class="modal-content">
-        <h3 id="edit-title">Edit Item</h3>
-        <div class="form-row">
-          <label for="edit-item-name">Item Name</label>
-          <input id="edit-item-name" type="text" />
-        </div>
-        <div class="form-row">
-          <label for="edit-expiration-date">Expiration Date</label>
-          <input id="edit-expiration-date" type="date" />
-        </div>
-        <div class="modal-buttons">
-          <button id="edit-save-btn" class="primary-btn" type="button">Save</button>
-          <button id="edit-cancel-btn" class="secondary-btn" type="button">Cancel</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="add-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="add-title">
-      <div class="modal-content">
-        <h3 id="add-title">Add Inventory Item</h3>
-        <div class="form-row">
-          <label for="add-item-name">Item Name</label>
-          <input id="add-item-name" type="text" placeholder="Example: Amoxicillin 250mg" />
-        </div>
-        <div class="form-row">
-          <label for="add-expiration-date">Expiration Date</label>
-          <input id="add-expiration-date" type="date" />
-        </div>
-        <div class="modal-buttons">
-          <button id="add-save-btn" class="primary-btn" type="button">Save Item</button>
-          <button id="add-cancel-btn" class="secondary-btn" type="button">Cancel</button>
-        </div>
-      </div>
-    </div>
-
-    <script src="script.js"></script>
-  </body>
+					<button type="submit" class="primary-action">Save</button>
+				</form>
+				<section class="saved-vendors" aria-labelledby="saved-vendors-title">
+					<div class="saved-vendors-header">
+						<h2 id="saved-vendors-title">Saved Vendors</h2>
+						<input id="vendor-search" type="search" aria-label="Search saved vendors" autocomplete="off" />
+					</div>
+					<p id="vendor-empty-state">No vendors saved yet.</p>
+					<ul id="vendor-list"></ul>
+				</section>
+			</div>
+		</section>
+	</main>
+	<section id="confirmation-modal" class="content-view" hidden>
+		<div class="modal-card">
+			<div class="modal-card-content">
+				<p id="confirmation-message"></p>
+			</div>
+			<div class="modal-actions">
+				<button id="confirmation-cancel" type="button" class="secondary-action">Cancel</button>
+				<button id="confirmation-confirm" type="button" class="primary-action">Confirm</button>
+			</div>
+		</div>
+	</section>
+	<script src="script.js"></script>
+</body>
 </html>

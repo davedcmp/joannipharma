@@ -1,837 +1,950 @@
-const STORAGE_KEY = "pharmacyInventoryItems";
-const EXPIRY_ALERT_WINDOW_DAYS = 30;
-const DEFAULT_ROWS_PER_PAGE = 15;
+"use strict";
 
+const menuButton = document.getElementById("menu-button");
+const menuOverlay = document.getElementById("menu-overlay");
+const maintenanceItem = document.querySelector(".has-submenu");
+const maintenanceToggle = document.querySelector(".submenu-toggle");
+const vendorMenuItem = document.getElementById("vendor-menu-item");
+const vendorView = document.getElementById("vendor-view");
+const vendorViewClose = document.getElementById("vendor-view-close");
+const vendorForm = document.getElementById("vendor-form");
+const vendorNameInput = document.getElementById("vendor-name");
+const vendorList = document.getElementById("vendor-list");
+const vendorEmptyState = document.getElementById("vendor-empty-state");
+const vendorSearch = document.getElementById("vendor-search");
+let selectedVendorItem = null;
+
+const inventoryMenuItem = document.getElementById("inventory-menu-item");
+const inventoryView = document.getElementById("inventory-view");
+const inventoryViewClose = document.getElementById("inventory-view-close");
+const inventoryForm = document.getElementById("inventory-form");
+const inventorySkuInput = document.getElementById("inventory-sku");
+const inventoryVendorSelect = document.getElementById("inventory-vendor");
+const inventoryReturnPolicyLeadInput = document.getElementById("inventory-return-policy-lead");
+const inventoryReturnPolicyTypeSelect = document.getElementById("inventory-return-policy-type");
+const inventoryDescriptionInput = document.getElementById("inventory-description");
+const inventoryList = document.getElementById("inventory-list");
+const inventoryEmptyState = document.getElementById("inventory-empty-state");
+const inventorySearch = document.getElementById("inventory-search");
 const addInventoryBtn = document.getElementById("add-inventory-btn");
-const addModal = document.getElementById("add-modal");
-const addItemNameInput = document.getElementById("add-item-name");
-const addExpirationDateInput = document.getElementById("add-expiration-date");
-const addSaveBtn = document.getElementById("add-save-btn");
-const addCancelBtn = document.getElementById("add-cancel-btn");
-const inventoryBody = document.getElementById("inventory-body");
-const alertModal = document.getElementById("alert-modal");
-const alertMessage = document.getElementById("alert-message");
-const alertTableWrap = document.getElementById("alert-table-wrap");
-const alertTableBody = document.getElementById("alert-table-body");
-const closeModalBtn = document.getElementById("close-modal");
-const editModal = document.getElementById("edit-modal");
-const editItemNameInput = document.getElementById("edit-item-name");
-const editExpirationDateInput = document.getElementById("edit-expiration-date");
-const editSaveBtn = document.getElementById("edit-save-btn");
-const editCancelBtn = document.getElementById("edit-cancel-btn");
-const exportBackupBtn = document.getElementById("export-backup");
-const importBackupBtn = document.getElementById("import-backup");
-const backupFileInput = document.getElementById("backup-file");
-const generateReportBtn = document.getElementById("generate-report");
-const deleteSelectedBtn = document.getElementById("delete-selected");
-const deselectAllBtn = document.getElementById("deselect-all");
-const tableSearchInput = document.getElementById("table-search");
-const prevPageBtn = document.getElementById("prev-page");
-const nextPageBtn = document.getElementById("next-page");
-const pageInfo = document.getElementById("page-info");
-const rowsPerPageSelect = document.getElementById("rows-per-page");
-
-let searchQuery = "";
-let inventory = loadInventory();
-let currentPage = 1;
-let rowsPerPage = DEFAULT_ROWS_PER_PAGE;
-let selectedItemIds = new Set();
-let currentEditingItemId = null;
-
-initializeApp();
-
-function initializeApp() {
-  renderInventoryTable();
-
-  // Requesting permission on load allows web notifications to appear automatically
-  // later for expired items. If permission is denied, the app will use an in-app modal.
-  requestNotificationPermission();
-
-  checkExpirationsAndNotify();
-
-  closeModalBtn.addEventListener("click", hideModal);
-  addInventoryBtn.addEventListener("click", onAddInventoryClick);
-  addCancelBtn.addEventListener("click", onAddCancel);
-  addSaveBtn.addEventListener("click", onAddSave);
-  editCancelBtn.addEventListener("click", onEditCancel);
-  editSaveBtn.addEventListener("click", onEditSave);
-  inventoryBody.addEventListener("click", onTableBodyClick);
-  inventoryBody.addEventListener("change", onTableBodyChange);
-  exportBackupBtn.addEventListener("click", onExportBackup);
-  importBackupBtn.addEventListener("click", onImportBackupClick);
-  backupFileInput.addEventListener("change", onBackupFileSelected);
-  generateReportBtn.addEventListener("click", onGenerateReport);
-  deleteSelectedBtn.addEventListener("click", onDeleteSelected);
-  deselectAllBtn.addEventListener("click", onDeselectAll);
-  tableSearchInput.addEventListener("input", onSearchInput);
-  prevPageBtn.addEventListener("click", onPrevPageClick);
-  nextPageBtn.addEventListener("click", onNextPageClick);
-  rowsPerPageSelect.addEventListener("change", onRowsPerPageChange);
-
-  rowsPerPage = Number.parseInt(rowsPerPageSelect.value, 10) || DEFAULT_ROWS_PER_PAGE;
-}
-
-function onTableBodyChange(event) {
-  const checkbox = event.target;
-  if (!checkbox.classList.contains("row-check")) return;
-
-  const itemId = checkbox.dataset.id;
-  if (!itemId) return;
-
-  setItemSelection(itemId, checkbox.checked);
-
-  updateBulkActionControls();
-}
-
-function onAddSave() {
-  const itemName = addItemNameInput.value.trim();
-  const expirationDate = addExpirationDateInput.value;
-
-  if (!itemName || !expirationDate) {
-    showInAppAlert("Please provide both Item Name and Expiration Date.");
-    return;
-  }
-
-  const newItem = {
-    id: generateUUID(),
-    itemName,
-    expirationDate
-  };
-
-  inventory.push(newItem);
-  saveInventory();
-  renderInventoryTable();
-  addModal.classList.add("hidden");
-}
-
-function onAddCancel() {
-  addModal.classList.add("hidden");
-}
-
-function onAddInventoryClick() {
-  addItemNameInput.value = "";
-  addExpirationDateInput.value = "";
-  addModal.classList.remove("hidden");
-  addItemNameInput.focus();
-}
-
-function onDeleteSelected() {
-  if (selectedItemIds.size === 0) {
-    showInAppAlert("Select at least one row to delete.");
-    return;
-  }
-
-  const count = selectedItemIds.size;
-  if (!window.confirm(`Delete ${count} selected ${count === 1 ? "item" : "items"}?`)) return;
-
-  inventory = inventory.filter((item) => !selectedItemIds.has(item.id));
-  selectedItemIds.clear();
-  saveInventory();
-  renderInventoryTable();
-}
-
-function onDeselectAll() {
-  if (selectedItemIds.size === 0) return;
-
-  selectedItemIds.clear();
-  renderInventoryTable();
-}
-
-function onTableBodyClick(event) {
-  const target = event.target;
-
-  if (target.classList.contains("row-check")) {
-    return;
-  }
-
-  const actionButton = target.closest("button");
-  if (actionButton && actionButton.classList.contains("edit-btn")) {
-    const itemId = actionButton.dataset.id;
-    if (!itemId) return;
-
-    const item = inventory.find((i) => i.id === itemId);
-    if (!item) return;
-    currentEditingItemId = itemId;
-    editItemNameInput.value = item.itemName;
-    editExpirationDateInput.value = item.expirationDate;
-    editModal.classList.remove("hidden");
-    editItemNameInput.focus();
-    return;
-  }
-
-  if (actionButton) {
-    return;
-  }
-
-  const row = target.closest("tr[data-item-id]");
-  if (!row) return;
-
-  const itemId = row.dataset.itemId;
-  if (!itemId) return;
-
-  const isSelected = toggleItemSelection(itemId);
-  updateRowCheckboxState(itemId, isSelected);
-  updateBulkActionControls();
-}
-
-function setItemSelection(itemId, isSelected) {
-  if (isSelected) {
-    selectedItemIds.add(itemId);
-  } else {
-    selectedItemIds.delete(itemId);
-  }
-}
-
-function toggleItemSelection(itemId) {
-  const shouldSelect = !selectedItemIds.has(itemId);
-  setItemSelection(itemId, shouldSelect);
-  return shouldSelect;
-}
-
-function updateRowCheckboxState(itemId, isSelected) {
-  const rowCheckbox = inventoryBody.querySelector(`.row-check[data-id="${itemId}"]`);
-  if (!rowCheckbox) return;
-  rowCheckbox.checked = isSelected;
-}
-
-function onEditSave() {
-  const newName = editItemNameInput.value.trim();
-  const newDate = editExpirationDateInput.value;
-
-  if (!newName || !newDate) {
-    showInAppAlert("Please provide both Item Name and Expiration Date.");
-    return;
-  }
-
-  const item = inventory.find((i) => i.id === currentEditingItemId);
-  if (!item) return;
-  item.itemName = newName;
-  item.expirationDate = newDate;
-  saveInventory();
-  renderInventoryTable();
-  editModal.classList.add("hidden");
-  currentEditingItemId = null;
-}
-
-function onEditCancel() {
-  editModal.classList.add("hidden");
-  currentEditingItemId = null;
-}
-
-function onGenerateReport() {
-  const today = normalizeDate(new Date());
-  const visibleItems = inventory.filter((item) => matchesSearch(item, searchQuery, today));
-
-  if (visibleItems.length === 0) {
-    showInAppAlert("No records to include in the report.");
-    return;
-  }
-
-  const headers = ["Item Name", "Expiration Date", "Status"];
-  const csvRows = [headers.map(quoteCsvField).join(",")];
-
-  visibleItems.forEach((item) => {
-    const statusLabel = getExpirationStatus(item.expirationDate, today).label;
-    const row = [item.itemName, item.expirationDate, statusLabel]
-      .map(quoteCsvField)
-      .join(",");
-    csvRows.push(row);
-  });
-
-  const timestamp = new Date().toISOString().slice(0, 10);
-  triggerDownload(`pharmacy-report-${timestamp}.csv`, csvRows.join("\n"));
-}
-
-function onExportBackup() {
-  if (inventory.length === 0) {
-    showInAppAlert("No records to export yet.");
-    return;
-  }
-
-  const headers = ["Item Name", "Expiration Date"];
-  const csvRows = [headers.map(quoteCsvField).join(",")];
-
-  inventory.forEach((item) => {
-    const row = [item.itemName, item.expirationDate]
-      .map(quoteCsvField)
-      .join(",");
-    csvRows.push(row);
-  });
-
-  const timestamp = new Date().toISOString().slice(0, 10);
-  triggerDownload(`pharmacy-inventory-records-${timestamp}.csv`, csvRows.join("\n"));
-}
-
-function onImportBackupClick() {
-  const shouldImport = window.confirm(
-    "Importing a CSV will replace your current records. Do you want to continue?"
-  );
-  if (!shouldImport) return;
-
-  backupFileInput.click();
-}
-
-function onBackupFileSelected(event) {
-  const file = event.target.files && event.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const csvText = String(reader.result || "");
-      const importedItems = parseCsvBackup(csvText);
-
-      inventory = importedItems;
-      saveInventory();
-      renderInventoryTable();
-      checkExpirationsAndNotify();
-      showInAppAlert(`Backup restored successfully. Imported ${importedItems.length} ${importedItems.length === 1 ? "item" : "items"}.`);
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : "Unknown format";
-      showInAppAlert(`Invalid CSV backup file. ${reason}`);
-    } finally {
-      backupFileInput.value = "";
-    }
-  };
-
-  reader.onerror = () => {
-    showInAppAlert("Unable to read the selected file.");
-    backupFileInput.value = "";
-  };
-
-  reader.readAsText(file);
-}
-
-function loadInventory() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveInventory() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(inventory));
-}
-
-function onSearchInput(event) {
-  const nextQuery = String(event.target.value || "").trim().toLowerCase();
-  if (nextQuery === searchQuery) return;
-
-  searchQuery = nextQuery;
-  currentPage = 1;
-  renderInventoryTable();
-}
-
-function onPrevPageClick() {
-  if (currentPage <= 1) return;
-  currentPage -= 1;
-  renderInventoryTable();
-}
-
-function onNextPageClick() {
-  currentPage += 1;
-  renderInventoryTable();
-}
-
-function onRowsPerPageChange(event) {
-  const selected = Number.parseInt(event.target.value, 10);
-  const nextRowsPerPage = Number.isFinite(selected) && selected > 0 ? selected : DEFAULT_ROWS_PER_PAGE;
-  if (nextRowsPerPage === rowsPerPage) return;
-
-  rowsPerPage = nextRowsPerPage;
-  currentPage = 1;
-  renderInventoryTable();
-}
-
-function renderInventoryTable() {
-  pruneSelectedItems();
-  updateBulkActionControls();
-
-  const today = normalizeDate(new Date());
-  const filteredInventory = inventory.filter((item) => matchesSearch(item, searchQuery, today));
-  const totalPages = Math.max(1, Math.ceil(filteredInventory.length / rowsPerPage));
-  currentPage = Math.min(currentPage, totalPages);
-  currentPage = Math.max(1, currentPage);
-
-  const pageStartIndex = (currentPage - 1) * rowsPerPage;
-  const pageItems = filteredInventory.slice(pageStartIndex, pageStartIndex + rowsPerPage);
-
-  updatePaginationControls(totalPages, filteredInventory.length);
-
-  if (inventory.length === 0) {
-    inventoryBody.innerHTML = `
-      <tr class="empty-row">
-        <td colspan="3">No inventory items saved.</td>
-      </tr>
-    `;
-    return;
-  }
-
-  if (filteredInventory.length === 0) {
-    inventoryBody.innerHTML = `
-      <tr class="empty-row">
-        <td colspan="3">No items match your search.</td>
-      </tr>
-    `;
-    return;
-  }
-
-  const rows = pageItems
-    .map((item) => {
-      const status = getExpirationStatus(item.expirationDate, today);
-      const isChecked = selectedItemIds.has(item.id) ? "checked" : "";
-      return `
-        <tr data-item-id="${item.id}">
-          <td class="checkbox-cell" rowspan="2"><input class="row-check" data-id="${item.id}" type="checkbox" aria-label="Select item" ${isChecked} /></td>
-          <td class="item-name-cell">${escapeHtml(item.itemName)}</td>
-          <td class="action-cell" rowspan="2">
-            <button class="edit-btn" data-id="${item.id}" type="button" aria-label="Edit item" title="Edit">✎</button>
-          </td>
-        </tr>
-        <tr data-item-id="${item.id}">
-          <td class="item-details-cell"><span class="item-date">${formatDisplayDate(item.expirationDate)}</span> <span class="${status.className}">${status.label}</span></td>
-        </tr>
-      `;
-    })
-    .join("");
-
-  inventoryBody.innerHTML = rows;
-}
-
-function updatePaginationControls(totalPages, filteredCount) {
-  const hasRows = filteredCount > 0;
-  pageInfo.textContent = hasRows ? `Page ${currentPage} of ${totalPages}` : "Page 0 of 0";
-  prevPageBtn.disabled = !hasRows || currentPage <= 1;
-  nextPageBtn.disabled = !hasRows || currentPage >= totalPages;
-}
-
-function updateBulkActionControls() {
-  const hasSelections = selectedItemIds.size > 0;
-  deleteSelectedBtn.disabled = !hasSelections;
-  deselectAllBtn.disabled = !hasSelections;
-}
-
-function pruneSelectedItems() {
-  if (selectedItemIds.size === 0) return;
-
-  const validIds = new Set(inventory.map((item) => item.id));
-  for (const id of selectedItemIds) {
-    if (!validIds.has(id)) selectedItemIds.delete(id);
-  }
-}
-
-function getExpirationStatus(dateText, today = normalizeDate(new Date())) {
-  const expiry = normalizeDate(new Date(dateText));
-  const expiryTime = expiry.getTime();
-  const todayTime = today.getTime();
-
-  if (Number.isNaN(expiryTime) || expiryTime <= todayTime) {
-    return { label: "Expired", className: "status-expired" };
-  }
-
-  if (getDayDifference(today, expiry) <= EXPIRY_ALERT_WINDOW_DAYS) {
-    return { label: "Expiring", className: "status-soon" };
-  }
-
-  return { label: "Valid", className: "status-valid" };
-}
-
-function checkExpirationsAndNotify() {
-  const today = normalizeDate(new Date());
-  const alertItems = inventory.filter((item) => {
-    const expiry = normalizeDate(new Date(item.expirationDate));
-    if (Number.isNaN(expiry.getTime())) return false;
-
-    const daysUntilExpiry = getDayDifference(today, expiry);
-    return daysUntilExpiry <= EXPIRY_ALERT_WINDOW_DAYS;
-  });
-
-  if (alertItems.length === 0) return;
-
-  const messageLines = alertItems.map((item) => {
-    const status = getExpirationStatus(item.expirationDate, today).label;
-    return `• ${item.itemName} (${formatDisplayDate(item.expirationDate)} - ${status})`;
-  });
-
-  const fullMessage = `The following items expire within ${EXPIRY_ALERT_WINDOW_DAYS} days or are already expired:\n\n${messageLines.join("\n")}`;
-
-  if ("Notification" in window && Notification.permission === "granted") {
-    try {
-      new Notification("Pharmacy Expiration Alert", {
-        body: fullMessage
-      });
-      return;
-    } catch {
-      // Some browsers expose Notification but block direct construction.
-      // Fall back to the in-app alert when constructor use is not allowed.
-    }
-  }
-
-  showExpirationTableAlert(alertItems);
-}
-
-function requestNotificationPermission() {
-  // Check if Notification API is available
-  if (!("Notification" in window)) return;
-
-  // Only request permission if not already granted or denied
-  if (Notification.permission === "default") {
-    // Some browsers (iOS Safari) require user interaction for notification permission
-    // The permission request will be handled via user gesture when needed
-    if (typeof Notification.requestPermission === "function") {
-      Notification.requestPermission().catch(() => {
-        // Permission request failed or was blocked - silently handle
-      });
-    }
-  }
-}
-
-function showInAppAlert(message) {
-  alertMessage.textContent = message;
-  alertMessage.classList.remove("hidden");
-  alertTableWrap.classList.add("hidden");
-  alertTableBody.innerHTML = "";
-  alertModal.classList.remove("hidden");
-}
-
-function showExpirationTableAlert(items) {
-  const title = `The following items expire within ${EXPIRY_ALERT_WINDOW_DAYS} days or are already expired:`;
-  alertMessage.textContent = title;
-  alertMessage.classList.remove("hidden");
-
-  const rows = items
-    .map((item) => {
-      const status = getExpirationStatus(item.expirationDate).label;
-      return `
-        <tr>
-          <td>${escapeHtml(item.itemName)}</td>
-          <td>${formatDisplayDate(item.expirationDate)}</td>
-          <td>${status}</td>
-        </tr>
-      `;
-    })
-    .join("");
-
-  alertTableBody.innerHTML = rows;
-  alertTableWrap.classList.remove("hidden");
-  alertModal.classList.remove("hidden");
-}
-
-function hideModal() {
-  alertModal.classList.add("hidden");
-}
-
-function triggerDownload(filename, csvContent) {
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
-function formatDisplayDate(dateText) {
-  const date = new Date(dateText);
-  if (Number.isNaN(date.getTime())) return "Invalid date";
-
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const year = date.getFullYear();
-
-  return `${month}/${day}/${year}`;
-}
-
-function normalizeDate(date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function getDayDifference(startDate, endDate) {
-  const millisecondsInDay = 1000 * 60 * 60 * 24;
-  return Math.floor((endDate.getTime() - startDate.getTime()) / millisecondsInDay);
-}
-
-function matchesSearch(item, query, today = normalizeDate(new Date())) {
-  if (!query) return true;
-
-  const itemName = String(item.itemName || "").toLowerCase();
-  if (itemName.includes(query)) return true;
-
-  const rawDate = String(item.expirationDate || "").toLowerCase();
-  if (rawDate.includes(query)) return true;
-
-  const formattedDate = formatDisplayDate(item.expirationDate).toLowerCase();
-  if (formattedDate.includes(query)) return true;
-
-  const statusLabel = getExpirationStatus(item.expirationDate, today).label.toLowerCase();
-  return statusLabel.includes(query);
-}
-
-function escapeHtml(value) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function generateUUID() {
-  // Use native crypto.randomUUID() if available (Chrome 92+, latest browsers)
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-
-  // Fallback for older browser versions (Chrome < 92, older Safari, etc.)
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
-function parseCsvBackup(csvText) {
-  const sanitizedText = String(csvText || "")
-    .replace(/^\uFEFF/, "")
-    .replace(/\u0000/g, "");
-
-  if (!sanitizedText.trim()) {
-    throw new Error("Empty CSV");
-  }
-
-  const lines = splitCsvLines(sanitizedText)
-    .map((line) => line.trim())
-    .filter((line) => line !== "");
-
-  if (lines.length === 0) {
-    throw new Error("No lines");
-  }
-
-  // Support files that include an Excel-style separator hint (e.g., "sep=;").
-  if (/^sep\s*=\s*[,;\t]$/i.test(lines[0])) {
-    lines.shift();
-  }
-
-  const delimiter = detectCsvDelimiter(lines[0] || "");
-  const rows = lines
-    .map((line) => parseCsvLine(line, delimiter))
-    .filter((row) => row.length > 0 && row.some((cell) => cell.trim() !== ""));
-
-  if (rows.length < 2) {
-    throw new Error("No data rows");
-  }
-
-  const header = rows[0].map((cell) => normalizeHeader(cell));
-  let itemNameIndex = findHeaderIndex(header, ["item name", "item", "medicine", "medication", "itemname"]);
-  let expirationDateIndex = findHeaderIndex(header, ["expiration date", "expiry date", "expiration", "expiry", "exp date", "exp"]);
-
-  // Fallback for CSV files with non-standard headers.
-  if (itemNameIndex === -1 || expirationDateIndex === -1) {
-    itemNameIndex = 0;
-    expirationDateIndex = 1;
-  }
-
-  if (rows.length === 1 || rows[0].length < 2) {
-    throw new Error("Missing required columns");
-  }
-
-  const importedItems = rows.slice(1).reduce((result, row) => {
-    const itemName = String(row[itemNameIndex] || "").trim();
-    const expirationDateRaw = String(row[expirationDateIndex] || "").trim();
-
-    // Ignore empty/non-data rows instead of failing the whole import.
-    if (!itemName && !expirationDateRaw) return result;
-
-    const expirationDate = normalizeDateText(expirationDateRaw);
-    if (!itemName || !expirationDate) return result;
-
-    const normalizedDate = normalizeDate(new Date(expirationDate));
-    if (Number.isNaN(normalizedDate.getTime())) return result;
-
-    result.push({
-      id: generateUUID(),
-      itemName,
-      expirationDate
-    });
-
-    return result;
-  }, []);
-
-  if (importedItems.length === 0) {
-    throw new Error("No valid rows found. Expected columns: Item Name and Expiration Date");
-  }
-
-  return importedItems;
-}
-
-function splitCsvLines(csvText) {
-  return csvText
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .replace(/[\u2028\u2029]/g, "\n")
-    .split("\n");
-}
-
-function parseCsvLine(line, delimiter = ",") {
-  const cells = [];
-  let current = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i += 1) {
-    const char = line[i];
-    const nextChar = line[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        current += '"';
-        i += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (char === delimiter && !inQuotes) {
-      cells.push(current);
-      current = "";
-      continue;
-    }
-
-    current += char;
-  }
-
-  cells.push(current);
-  return cells;
-}
-
-function detectCsvDelimiter(headerLine) {
-  const commaCount = countDelimiter(headerLine, ",");
-  const semicolonCount = countDelimiter(headerLine, ";");
-  const tabCount = countDelimiter(headerLine, "\t");
-
-  if (semicolonCount > commaCount && semicolonCount >= tabCount) return ";";
-  if (tabCount > commaCount && tabCount > semicolonCount) return "\t";
-  return ",";
-}
-
-function countDelimiter(line, delimiter) {
-  let inQuotes = false;
-  let count = 0;
-
-  for (let i = 0; i < line.length; i += 1) {
-    const char = line[i];
-    const nextChar = line[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        i += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (char === delimiter && !inQuotes) {
-      count += 1;
-    }
-  }
-
-  return count;
-}
-
-function normalizeDateText(value) {
-  const text = String(value || "").trim();
-  if (!text) return "";
-
-  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (isoMatch) return text;
-
-  const isoSlashMatch = text.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
-  if (isoSlashMatch) {
-    return `${isoSlashMatch[1]}-${String(isoSlashMatch[2]).padStart(2, "0")}-${String(isoSlashMatch[3]).padStart(2, "0")}`;
-  }
-
-  const dashMatch = text.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
-  if (dashMatch) {
-    let part1 = Number(dashMatch[1]);
-    let part2 = Number(dashMatch[2]);
-    const year = Number(dashMatch[3]);
-    let month = part1;
-    let day = part2;
-    if (part1 > 12 && part2 <= 12) {
-      month = part2;
-      day = part1;
-    }
-    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  }
-
-  const slashMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (slashMatch) {
-    let part1 = Number(slashMatch[1]);
-    let part2 = Number(slashMatch[2]);
-    const year = Number(slashMatch[3]);
-
-    // Prefer MM/DD/YYYY for ambiguous values; flip when month is impossible.
-    let month = part1;
-    let day = part2;
-    if (part1 > 12 && part2 <= 12) {
-      month = part2;
-      day = part1;
-    }
-
-    const paddedMonth = String(month).padStart(2, "0");
-    const paddedDay = String(day).padStart(2, "0");
-    return `${year}-${paddedMonth}-${paddedDay}`;
-  }
-
-  // Support Excel serial dates (e.g., 45567).
-  if (/^\d{4,6}$/.test(text)) {
-    const serial = Number(text);
-    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-    const date = new Date(excelEpoch.getTime() + serial * 24 * 60 * 60 * 1000);
-    if (!Number.isNaN(date.getTime())) {
-      const year = date.getUTCFullYear();
-      const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-      const day = String(date.getUTCDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    }
-  }
-
-  // Last-resort parse for localized month-name formats.
-  const fallbackDate = new Date(text);
-  if (!Number.isNaN(fallbackDate.getTime())) {
-    const year = fallbackDate.getFullYear();
-    const month = String(fallbackDate.getMonth() + 1).padStart(2, "0");
-    const day = String(fallbackDate.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }
-
-  return "";
-}
-
-function normalizeHeader(value) {
-  return String(value || "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function findHeaderIndex(headers, candidates) {
-  for (let i = 0; i < headers.length; i += 1) {
-    const header = headers[i];
-    if (candidates.includes(header)) return i;
-  }
-  return -1;
-}
-
-function quoteCsvField(value) {
-  const text = String(value ?? "");
-  return `"${text.replaceAll('"', '""')}"`;
+let selectedInventoryItem = null;
+
+const confirmationModal = document.getElementById("confirmation-modal");
+const confirmationMessage = document.getElementById("confirmation-message");
+const confirmationConfirmButton = document.getElementById("confirmation-confirm");
+const confirmationCancelButton = document.getElementById("confirmation-cancel");
+let activeConfirmPromise = null;
+
+const VENDORS_STORAGE_KEY = "expiration-tracker.vendors";
+const INVENTORY_STORAGE_KEY = "expiration-tracker.inventory";
+const POLICY_MONTH_OF_EXPIRY = "month of expiry";
+
+const parseReturnPolicy = (returnPolicyText) => {
+	const normalizedPolicy = String(returnPolicyText ?? "").trim().toLowerCase();
+
+	if (normalizedPolicy === POLICY_MONTH_OF_EXPIRY) {
+		return {
+			leadTime: "",
+			policyType: POLICY_MONTH_OF_EXPIRY,
+		};
+	}
+
+	const policyMatch = normalizedPolicy.match(/^(\d+)\s+(month before)$/);
+	if (policyMatch) {
+		return {
+			leadTime: policyMatch[1],
+			policyType: policyMatch[2],
+		};
+	}
+
+	return {
+		leadTime: "",
+		policyType: "",
+	};
+};
+
+const buildReturnPolicy = (leadTime, policyType) => {
+	if (!policyType) {
+		return "";
+	}
+
+	if (policyType === POLICY_MONTH_OF_EXPIRY) {
+		return POLICY_MONTH_OF_EXPIRY;
+	}
+
+	return `${leadTime} ${policyType}`;
+};
+
+const readArrayFromLocalStorage = (key) => {
+	try {
+		const raw = window.localStorage.getItem(key);
+		if (!raw) {
+			return [];
+		}
+
+		const parsed = JSON.parse(raw);
+		return Array.isArray(parsed) ? parsed : [];
+	} catch {
+		return [];
+	}
+};
+
+const writeArrayToLocalStorage = (key, data) => {
+	try {
+		window.localStorage.setItem(key, JSON.stringify(data));
+	} catch (error) {
+		console.error("Failed to write to local storage", error);
+		showAlert("Saving failed in this browser. Check storage settings and try again.");
+		throw error;
+	}
+};
+
+const getVendorsFromStorage = () => Promise.resolve(readArrayFromLocalStorage(VENDORS_STORAGE_KEY));
+
+const saveVendorsToStorage = async () => {
+	if (!vendorList) return;
+	const vendors = Array.from(vendorList.querySelectorAll(".vendor-label")).map((label) => label.textContent);
+	try {
+		writeArrayToLocalStorage(VENDORS_STORAGE_KEY, vendors);
+	} catch (error) {
+		console.error("Failed to save vendors to browser local storage", error);
+		throw error;
+	}
+};
+
+const populateVendorDropdown = () => {
+	if (!inventoryVendorSelect) {
+		return;
+	}
+
+	const vendors = vendorList
+		? Array.from(vendorList.querySelectorAll(".vendor-label")).map(
+			(label) => label.textContent ?? ""
+		)
+		: [];
+	const currentValue = inventoryVendorSelect.value;
+
+	const options = inventoryVendorSelect.querySelectorAll("option");
+	options.forEach((option, index) => {
+		if (index > 0) {
+			option.remove();
+		}
+	});
+
+	vendors.forEach((vendor) => {
+		const option = document.createElement("option");
+		option.value = vendor;
+		option.textContent = vendor;
+		inventoryVendorSelect.appendChild(option);
+	});
+
+	inventoryVendorSelect.value = currentValue;
+};
+
+const getInventoryFromStorage = () => Promise.resolve(readArrayFromLocalStorage(INVENTORY_STORAGE_KEY));
+
+const saveInventoryToStorage = async () => {
+	if (!inventoryList) return;
+	const inventory = Array.from(inventoryList.querySelectorAll("li")).map((li) => ({
+		sku: li.querySelector(".inventory-sku")?.textContent ?? "",
+		description: li.querySelector(".inventory-desc")?.textContent ?? "",
+		vendor: li.dataset.vendor ?? "",
+		returnPolicy: li.dataset.returnPolicy ?? "",
+	}));
+	try {
+		writeArrayToLocalStorage(INVENTORY_STORAGE_KEY, inventory);
+	} catch (error) {
+		console.error("Failed to save inventory to browser local storage", error);
+		throw error;
+	}
+};
+
+const CLOSE_FADE_MS = 220;
+
+const showConfirmationModal = (message, isAlert = false) => {
+	return new Promise((resolve) => {
+		if (activeConfirmPromise) {
+			return;
+		}
+
+		confirmationMessage.textContent = message;
+		confirmationModal.classList.remove("view-closing");
+		confirmationModal.hidden = false;
+
+		// Show/hide cancel button and update confirm button text
+		confirmationCancelButton.hidden = isAlert;
+		confirmationConfirmButton.textContent = isAlert ? "OK" : "Confirm";
+
+		const handleConfirm = () => {
+			cleanup();
+			resolve(true);
+		};
+
+		const handleCancel = () => {
+			cleanup();
+			resolve(false);
+		};
+
+		const handleKeydown = (event) => {
+			if (event.key === "Enter") {
+				handleConfirm();
+			} else if (event.key === "Escape" && !isAlert) {
+				handleCancel();
+			}
+		};
+
+		const cleanup = () => {
+			confirmationConfirmButton.removeEventListener("click", handleConfirm);
+			confirmationCancelButton.removeEventListener("click", handleCancel);
+			document.removeEventListener("keydown", handleKeydown);
+			activeConfirmPromise = null;
+		};
+
+		confirmationConfirmButton.addEventListener("click", handleConfirm);
+		confirmationCancelButton.addEventListener("click", handleCancel);
+		document.addEventListener("keydown", handleKeydown);
+		confirmationConfirmButton.focus();
+
+		activeConfirmPromise = Promise.resolve();
+	});
+};
+
+const hideConfirmationModal = async () => {
+	if (confirmationModal.hidden) {
+		return;
+	}
+
+	confirmationModal.classList.add("view-closing");
+	await new Promise((resolve) => {
+		window.setTimeout(resolve, CLOSE_FADE_MS);
+	});
+	confirmationModal.hidden = true;
+	confirmationModal.classList.remove("view-closing");
+};
+
+const showAlert = async (message) => {
+	await showConfirmationModal(message, true);
+	await hideConfirmationModal();
+};
+
+const showConfirm = async (message) => {
+	const result = await showConfirmationModal(message, false);
+	await hideConfirmationModal();
+	return result;
+};
+
+if (menuButton && menuOverlay) {
+	const setSubmenuState = (isOpen) => {
+		if (!maintenanceItem || !maintenanceToggle) {
+			return;
+		}
+
+		maintenanceItem.classList.toggle("submenu-open", isOpen);
+		maintenanceToggle.setAttribute("aria-expanded", String(isOpen));
+	};
+
+	const setMenuState = (isOpen) => {
+		document.body.classList.toggle("menu-open", isOpen);
+		menuButton.setAttribute("aria-expanded", String(isOpen));
+
+		if (!isOpen) {
+			setSubmenuState(false);
+		}
+	};
+
+	const CLOSE_FADE_MS = 220;
+
+	const toggleView = (viewElement, show, nextFocusElement) => {
+		if (!viewElement) return;
+
+		const activeCloseTimer = viewElement.dataset.closeTimerId;
+		if (activeCloseTimer) {
+			window.clearTimeout(Number(activeCloseTimer));
+			delete viewElement.dataset.closeTimerId;
+		}
+
+		if (show) {
+			viewElement.classList.remove("view-closing");
+			viewElement.hidden = false;
+		} else {
+			if (viewElement.hidden) {
+				return;
+			}
+			viewElement.classList.add("view-closing");
+			const timerId = window.setTimeout(() => {
+				viewElement.hidden = true;
+				viewElement.classList.remove("view-closing");
+				delete viewElement.dataset.closeTimerId;
+			}, CLOSE_FADE_MS);
+			viewElement.dataset.closeTimerId = String(timerId);
+		}
+
+		const card = viewElement.querySelector(".form-card");
+		if (card) {
+			card.classList.toggle("zoom-in", show);
+		}
+		if (show && nextFocusElement) {
+			nextFocusElement.focus();
+		}
+	};
+
+	const showVendorView = () => {
+		hideInventoryView();
+		clearSelectedVendor();
+		if (vendorNameInput) {
+			vendorNameInput.value = "";
+		}
+		toggleView(vendorView, true, vendorNameInput);
+		setMenuState(false);
+	};
+
+	const hideVendorView = () => {
+		toggleView(vendorView, false);
+	};
+
+	const showInventoryView = () => {
+		hideVendorView();
+		clearSelectedInventory();
+		if (inventorySkuInput) {
+			inventorySkuInput.value = "";
+		}
+		if (inventoryDescriptionInput) {
+			inventoryDescriptionInput.value = "";
+		}
+		if (inventoryVendorSelect) {
+			inventoryVendorSelect.value = "";
+		}
+		if (inventoryReturnPolicyLeadInput) {
+			inventoryReturnPolicyLeadInput.value = "";
+		}
+		if (inventoryReturnPolicyTypeSelect) {
+			inventoryReturnPolicyTypeSelect.value = "";
+		}
+		updatePolicyLeadTimeState();
+		toggleView(inventoryView, true, inventorySkuInput);
+		setMenuState(false);
+	};
+
+	const hideInventoryView = () => {
+		toggleView(inventoryView, false);
+	};
+
+	const addEditableRowToMainGrid = async () => {
+		const mainGridTable = document.querySelector(".main-grid-table tbody");
+		if (!mainGridTable) return;
+
+		// Remove empty state if it exists
+		const emptyState = mainGridTable.querySelector(".main-grid-empty");
+		if (emptyState) {
+			emptyState.parentElement.remove();
+		}
+
+		const newRow = document.createElement("tr");
+		newRow.className = "main-grid-edit-row";
+
+		// Checkbox
+		const checkboxCell = document.createElement("td");
+		checkboxCell.className = "checkbox-cell";
+		const checkbox = document.createElement("input");
+		checkbox.type = "checkbox";
+		checkbox.className = "grid-checkbox";
+		checkboxCell.appendChild(checkbox);
+		newRow.appendChild(checkboxCell);
+
+		// SKU# input with autocomplete
+		const skuCell = document.createElement("td");
+		const skuWrapper = document.createElement("div");
+		skuWrapper.className = "sku-input-wrapper";
+		
+		const skuInput = document.createElement("input");
+		skuInput.type = "text";
+		skuInput.placeholder = "SKU#";
+		skuInput.className = "grid-input";
+		
+		const suggestionsList = document.createElement("div");
+		suggestionsList.className = "sku-suggestions";
+		suggestionsList.hidden = true;
+		
+		const hideSuggestions = () => {
+			suggestionsList.hidden = true;
+			suggestionsList.innerHTML = "";
+		};
+		
+		const showSuggestions = async (query) => {
+			if (!query.trim()) {
+				hideSuggestions();
+				return;
+			}
+			
+			const allInventory = await getInventoryFromStorage();
+			const filtered = allInventory.filter((item) =>
+				item.sku.toLowerCase().includes(query.toLowerCase())
+			);
+			
+			if (filtered.length === 0) {
+				hideSuggestions();
+				return;
+			}
+			
+			suggestionsList.innerHTML = "";
+			filtered.forEach((item) => {
+				const div = document.createElement("div");
+				div.className = "sku-suggestion-item";
+				div.innerHTML = `
+					<div class="sku-suggestion-main">
+						<strong>${item.sku}</strong>
+						<span>${item.description || "No description"}</span>
+					</div>
+					<div class="sku-suggestion-meta">
+						<span>Vendor: ${item.vendor || "N/A"}</span>
+						<span>Policy: ${item.returnPolicy || "N/A"}</span>
+					</div>
+				`;
+				div.addEventListener("click", () => {
+				skuInput.value = item.sku;
+				descSpan.textContent = item.description || "";
+				vendorSpan.textContent = item.vendor || "";
+					policyInput.value = item.returnPolicy || "";
+					hideSuggestions();
+				});
+				suggestionsList.appendChild(div);
+			});
+			
+			suggestionsList.hidden = false;
+		};
+		
+		skuInput.addEventListener("input", (e) => {
+			showSuggestions(e.target.value);
+		});
+		
+		skuInput.addEventListener("blur", () => {
+			// Delay to allow click on suggestion to register
+			setTimeout(hideSuggestions, 200);
+		});
+		
+		skuWrapper.appendChild(skuInput);
+		skuWrapper.appendChild(suggestionsList);
+		skuCell.appendChild(skuWrapper);
+		newRow.appendChild(skuCell);
+
+		// Description + Vendor stacked (non-editable, populated by SKU selection)
+		const descVendorCell = document.createElement("td");
+		descVendorCell.className = "grid-desc-vendor-cell";
+		const descSpan = document.createElement("span");
+		descSpan.className = "grid-desc-text";
+		descSpan.textContent = "";
+		const vendorSpan = document.createElement("span");
+		vendorSpan.className = "grid-vendor-text";
+		vendorSpan.textContent = "";
+		descVendorCell.appendChild(descSpan);
+		descVendorCell.appendChild(vendorSpan);
+		newRow.appendChild(descVendorCell);
+
+		// Quantity input
+		const qtyCell = document.createElement("td");
+		const qtyInput = document.createElement("input");
+		qtyInput.type = "number";
+		qtyInput.placeholder = "Qty";
+		qtyInput.className = "grid-input";
+		qtyCell.appendChild(qtyInput);
+		newRow.appendChild(qtyCell);
+
+		// Return Policy input
+		const policyCell = document.createElement("td");
+		const policyInput = document.createElement("input");
+		policyInput.type = "text";
+		policyInput.placeholder = "Policy";
+		policyInput.className = "grid-input";
+		policyCell.appendChild(policyInput);
+		newRow.appendChild(policyCell);
+
+		// Expiry Date input
+		const expiryDateCell = document.createElement("td");
+		const expiryDateInput = document.createElement("input");
+		expiryDateInput.type = "date";
+		expiryDateInput.className = "grid-input";
+		expiryDateCell.appendChild(expiryDateInput);
+		newRow.appendChild(expiryDateCell);
+
+		// Pull-out Date input
+		const dateCell = document.createElement("td");
+		const dateInput = document.createElement("input");
+		dateInput.type = "date";
+		dateInput.className = "grid-input";
+		dateCell.appendChild(dateInput);
+		newRow.appendChild(dateCell);
+
+		// Remarks input
+		const remarksCell = document.createElement("td");
+		const remarksInput = document.createElement("input");
+		remarksInput.type = "text";
+		remarksInput.placeholder = "Remarks";
+		remarksInput.className = "grid-input";
+		remarksCell.appendChild(remarksInput);
+		newRow.appendChild(remarksCell);
+
+		mainGridTable.appendChild(newRow);
+		skuInput.focus();
+	};
+
+	menuButton.addEventListener("click", () => {
+		const nextState = !document.body.classList.contains("menu-open");
+		setMenuState(nextState);
+	});
+
+	menuOverlay.addEventListener("click", () => {
+		setMenuState(false);
+	});
+
+	if (maintenanceToggle) {
+		maintenanceToggle.addEventListener("click", () => {
+			const nextState = !maintenanceItem.classList.contains("submenu-open");
+			setSubmenuState(nextState);
+		});
+	}
+
+	if (vendorMenuItem) {
+		vendorMenuItem.addEventListener("click", () => {
+			showVendorView();
+		});
+	}
+
+	vendorViewClose?.addEventListener("click", () => {
+		hideVendorView();
+	});
+
+	if (inventoryMenuItem) {
+		inventoryMenuItem.addEventListener("click", () => {
+			showInventoryView();
+		});
+	}
+
+	inventoryViewClose?.addEventListener("click", () => {
+		hideInventoryView();
+	});
+
+	addInventoryBtn?.addEventListener("click", () => {
+		addEditableRowToMainGrid();
+	});
+
+	const clearSelectedVendor = () => {
+		if (!selectedVendorItem) {
+			return;
+		}
+
+		selectedVendorItem.classList.remove("vendor-selected");
+		selectedVendorItem = null;
+	};
+
+	const selectVendor = (listItem) => {
+		if (!vendorNameInput) {
+			return;
+		}
+
+		clearSelectedVendor();
+		selectedVendorItem = listItem;
+		selectedVendorItem.classList.add("vendor-selected");
+
+		const vendorLabel = listItem.querySelector(".vendor-label");
+		vendorNameInput.value = vendorLabel?.textContent ?? "";
+		vendorNameInput.focus();
+		vendorNameInput.select();
+	};
+
+	const filterVendorsBySearch = () => {
+		if (!vendorList || !vendorEmptyState) {
+			return;
+		}
+
+		const query = vendorSearch?.value.trim().toLowerCase() ?? "";
+		let visibleCount = 0;
+
+		Array.from(vendorList.querySelectorAll("li")).forEach((li) => {
+			const name = li.querySelector(".vendor-label")?.textContent?.toLowerCase() ?? "";
+			const matches = !query || name.includes(query);
+			li.hidden = !matches;
+			if (matches) {
+				visibleCount++;
+			}
+		});
+
+		vendorEmptyState.hidden = visibleCount > 0;
+	};
+
+	vendorSearch?.addEventListener("input", filterVendorsBySearch);
+
+	const createVendorRow = (vendorName, persist = true) => {
+		if (!vendorList || !vendorEmptyState) {
+			return;
+		}
+
+		const listItem = document.createElement("li");
+		const vendorLabel = document.createElement("span");
+		vendorLabel.className = "vendor-label";
+		vendorLabel.textContent = vendorName;
+
+		const deleteButton = document.createElement("button");
+		deleteButton.type = "button";
+		deleteButton.className = "vendor-delete";
+		deleteButton.setAttribute("aria-label", `Delete ${vendorName}`);
+		deleteButton.innerHTML = "×";
+		deleteButton.addEventListener("click", async (event) => {
+			event.stopPropagation();
+			
+			// Check if vendor is in use in any inventory records
+			const inventoryItems = Array.from(inventoryList.querySelectorAll("li"));
+			const isVendorInUse = inventoryItems.some((item) => item.dataset.vendor === vendorName);
+			
+			if (isVendorInUse) {
+				await showAlert(`Cannot delete vendor "${vendorName}" because it is in use in inventory records.`);
+				return;
+			}
+			
+			if (!(await showConfirm(`Delete vendor "${vendorName}"?`))) {
+				return;
+			}
+			if (selectedVendorItem === listItem) {
+				clearSelectedVendor();
+				if (vendorNameInput) {
+					vendorNameInput.value = "";
+				}
+			}
+
+			listItem.remove();
+			vendorEmptyState.hidden = vendorList.children.length > 0;
+			await saveVendorsToStorage();
+			filterVendorsBySearch();
+		});
+
+		listItem.addEventListener("click", () => {
+			selectVendor(listItem);
+		});
+
+		listItem.append(vendorLabel, deleteButton);
+		vendorList.appendChild(listItem);
+		vendorEmptyState.hidden = true;
+		filterVendorsBySearch();
+		if (persist) {
+			saveVendorsToStorage();
+		}
+	};
+
+	vendorForm?.addEventListener("submit", async (event) => {
+		event.preventDefault();
+
+		if (!vendorNameInput || !vendorList || !vendorEmptyState) {
+			return;
+		}
+
+		const vendorName = vendorNameInput.value.trim();
+		if (!vendorName) {
+			vendorNameInput.focus();
+			return;
+		}
+
+		if (!(await showConfirm(`Save vendor "${vendorName}"?`))) {
+			return;
+		}
+
+		if (selectedVendorItem) {
+			const vendorLabel = selectedVendorItem.querySelector(".vendor-label");
+			const oldVendorName = vendorLabel?.textContent ?? "";
+			
+			// Update vendor name in the vendor list
+			if (vendorLabel) {
+				vendorLabel.textContent = vendorName;
+			}
+			const vendorDelete = selectedVendorItem.querySelector(".vendor-delete");
+			if (vendorDelete) {
+				vendorDelete.setAttribute("aria-label", `Delete ${vendorName}`);
+			}
+			
+			// Update inventory items that reference this vendor
+			if (oldVendorName && oldVendorName !== vendorName) {
+				const inventoryItems = Array.from(inventoryList.querySelectorAll("li"));
+				inventoryItems.forEach((item) => {
+					if (item.dataset.vendor === oldVendorName) {
+						item.dataset.vendor = vendorName;
+						const vendorMetaSpan = item.querySelector(".inventory-meta-vendor");
+						if (vendorMetaSpan) {
+							vendorMetaSpan.textContent = vendorName;
+						}
+					}
+				});
+				await saveInventoryToStorage();
+			}
+			
+			clearSelectedVendor();
+			await saveVendorsToStorage();
+			filterVendorsBySearch();
+		} else {
+			createVendorRow(vendorName);
+		}
+
+		vendorNameInput.value = "";
+		vendorNameInput.focus();
+		populateVendorDropdown();
+	});
+
+	const clearSelectedInventory = () => {
+		if (!selectedInventoryItem) {
+			return;
+		}
+
+		selectedInventoryItem.classList.remove("inventory-selected");
+		selectedInventoryItem = null;
+	};
+
+	const updatePolicyLeadTimeState = () => {
+		if (!inventoryReturnPolicyLeadInput || !inventoryReturnPolicyTypeSelect) {
+			return;
+		}
+
+		const policyType = inventoryReturnPolicyTypeSelect.value;
+		const shouldDisableLeadTime = !policyType || policyType === POLICY_MONTH_OF_EXPIRY;
+		inventoryReturnPolicyLeadInput.disabled = shouldDisableLeadTime;
+		if (shouldDisableLeadTime) {
+			inventoryReturnPolicyLeadInput.value = "";
+		}
+	};
+
+	inventoryReturnPolicyTypeSelect?.addEventListener("change", () => {
+		updatePolicyLeadTimeState();
+	});
+
+	updatePolicyLeadTimeState();
+
+	const selectInventory = (listItem) => {
+		if (!inventorySkuInput || !inventoryVendorSelect || !inventoryReturnPolicyLeadInput || !inventoryReturnPolicyTypeSelect || !inventoryDescriptionInput) {
+			return;
+		}
+
+		clearSelectedInventory();
+		selectedInventoryItem = listItem;
+		selectedInventoryItem.classList.add("inventory-selected");
+
+		const vendorValue = listItem.dataset.vendor ?? "";
+		const returnPolicyValue = listItem.dataset.returnPolicy ?? "";
+		const parsedPolicy = parseReturnPolicy(returnPolicyValue);
+		inventorySkuInput.value = listItem.querySelector(".inventory-sku")?.textContent ?? "";
+		inventoryDescriptionInput.value = listItem.querySelector(".inventory-desc")?.textContent ?? "";
+		inventoryVendorSelect.value = vendorValue;
+		inventoryReturnPolicyLeadInput.value = parsedPolicy.leadTime;
+		inventoryReturnPolicyTypeSelect.value = parsedPolicy.policyType;
+		updatePolicyLeadTimeState();
+		inventorySkuInput.focus();
+		inventorySkuInput.select();
+	};
+
+	const createInventoryRow = (sku, vendor, returnPolicy, description, persist = true) => {
+		if (!inventoryList || !inventoryEmptyState) {
+			return;
+		}
+
+		const listItem = document.createElement("li");
+		listItem.dataset.vendor = vendor;
+		listItem.dataset.returnPolicy = returnPolicy;
+
+		const skuSpan = document.createElement("span");
+		skuSpan.className = "inventory-sku";
+		skuSpan.textContent = sku;
+
+		const detailCell = document.createElement("div");
+		detailCell.className = "inventory-detail-cell";
+
+		const descSpan = document.createElement("span");
+		descSpan.className = "inventory-desc";
+		descSpan.textContent = description;
+
+		const metaRow = document.createElement("div");
+		metaRow.className = "inventory-meta";
+
+		const vendorMetaSpan = document.createElement("span");
+		vendorMetaSpan.className = "inventory-meta-vendor";
+		vendorMetaSpan.textContent = vendor;
+
+		metaRow.append(vendorMetaSpan);
+		detailCell.append(descSpan, metaRow);
+
+		const policyMetaSpan = document.createElement("span");
+		policyMetaSpan.className = "inventory-meta-policy";
+		policyMetaSpan.textContent = returnPolicy;
+
+		const deleteButton = document.createElement("button");
+		deleteButton.type = "button";
+		deleteButton.className = "inventory-delete";
+		deleteButton.setAttribute("aria-label", `Delete ${sku}`);
+		deleteButton.innerHTML = "×";
+		deleteButton.addEventListener("click", async (event) => {
+			event.stopPropagation();
+			if (!(await showConfirm(`Delete item "${sku}"?`))) {
+				return;
+			}
+			if (selectedInventoryItem === listItem) {
+				clearSelectedInventory();
+				if (inventorySkuInput) {
+					inventorySkuInput.value = "";
+					inventoryVendorSelect.value = "";
+					if (inventoryReturnPolicyLeadInput) {
+						inventoryReturnPolicyLeadInput.value = "";
+					}
+					if (inventoryReturnPolicyTypeSelect) {
+						inventoryReturnPolicyTypeSelect.value = "";
+					}
+					updatePolicyLeadTimeState();
+					inventoryDescriptionInput.value = "";
+				}
+			}
+
+			listItem.remove();
+			inventoryEmptyState.hidden = inventoryList.children.length > 0;
+			await saveInventoryToStorage();
+		});
+
+		listItem.addEventListener("click", () => {
+			selectInventory(listItem);
+		});
+
+		listItem.append(skuSpan, detailCell, policyMetaSpan, deleteButton);
+		inventoryList.appendChild(listItem);
+		inventoryEmptyState.hidden = true;
+		if (persist) {
+			saveInventoryToStorage();
+		}
+	};
+
+	inventoryForm?.addEventListener("submit", async (event) => {
+		event.preventDefault();
+
+		if (!inventorySkuInput || !inventoryVendorSelect || !inventoryReturnPolicyLeadInput || !inventoryReturnPolicyTypeSelect || !inventoryDescriptionInput || !inventoryList || !inventoryEmptyState) {
+			return;
+		}
+
+		const sku = inventorySkuInput.value.trim();
+		const vendor = inventoryVendorSelect.value;
+		const returnPolicyLeadTime = inventoryReturnPolicyLeadInput.value.trim();
+		const returnPolicyType = inventoryReturnPolicyTypeSelect.value;
+		const description = inventoryDescriptionInput.value.trim();
+
+		if (!sku || !vendor) {
+			inventorySkuInput.focus();
+			return;
+		}
+
+		if (!(await showConfirm(`Save inventory item "${sku}"?`))) {
+			return;
+		}
+
+		if (returnPolicyType && returnPolicyType !== POLICY_MONTH_OF_EXPIRY && !/^\d+$/.test(returnPolicyLeadTime)) {
+			inventoryReturnPolicyLeadInput.focus();
+			inventoryReturnPolicyLeadInput.select();
+			return;
+		}
+
+		const returnPolicy = buildReturnPolicy(returnPolicyLeadTime, returnPolicyType);
+
+		// Check for duplicate SKU (excluding currently selected item)
+		const existingSKU = Array.from(inventoryList.querySelectorAll("li"))
+			.filter((li) => li !== selectedInventoryItem)
+			.some((li) => li.querySelector(".inventory-sku")?.textContent?.toLowerCase() === sku.toLowerCase());
+
+		if (existingSKU) {
+			alert("SKU# already exists. Each item must have a unique SKU#.");
+			inventorySkuInput.focus();
+			inventorySkuInput.select();
+			return;
+		}
+
+		if (selectedInventoryItem) {
+			selectedInventoryItem.querySelector(".inventory-sku").textContent = sku;
+			selectedInventoryItem.querySelector(".inventory-desc").textContent = description;
+			selectedInventoryItem.dataset.vendor = vendor;
+			selectedInventoryItem.dataset.returnPolicy = returnPolicy;
+			const editedMeta = selectedInventoryItem.querySelector(".inventory-meta");
+		const editedPolicy = selectedInventoryItem.querySelector(".inventory-meta-policy");
+		if (editedMeta) {
+			const v = editedMeta.querySelector(".inventory-meta-vendor");
+			if (v) v.textContent = vendor;
+		}
+		if (editedPolicy) editedPolicy.textContent = returnPolicy;
+			clearSelectedInventory();
+			await saveInventoryToStorage();
+			sortInventoryByDescription();
+		} else {
+			createInventoryRow(sku, vendor, returnPolicy, description);
+			sortInventoryByDescription();
+		}
+
+		inventorySkuInput.value = "";
+		inventoryVendorSelect.value = "";
+		inventoryReturnPolicyLeadInput.value = "";
+		inventoryReturnPolicyTypeSelect.value = "";
+		updatePolicyLeadTimeState();
+		inventoryDescriptionInput.value = "";
+		inventorySkuInput.focus();
+	});
+
+	document.addEventListener("keydown", (event) => {
+		if (event.key === "Escape") {
+			if (inventoryView && !inventoryView.hidden) {
+				hideInventoryView();
+				return;
+			}
+
+			if (vendorView && !vendorView.hidden) {
+				hideVendorView();
+				return;
+			}
+
+			setMenuState(false);
+		}
+	});
+
+	const sortInventoryByDescription = () => {
+		if (!inventoryList) return;
+		const items = Array.from(inventoryList.querySelectorAll("li"));
+		items.sort((a, b) => {
+		const descA = a.querySelector(".inventory-desc")?.textContent?.toLowerCase() ?? "";
+		const descB = b.querySelector(".inventory-desc")?.textContent?.toLowerCase() ?? "";
+			return descA.localeCompare(descB);
+		});
+		items.forEach((item) => inventoryList.appendChild(item));
+	};
+
+	const filterInventoryBySearch = () => {
+		if (!inventoryList) return;
+		const query = inventorySearch?.value.trim().toLowerCase() ?? "";
+		let visibleCount = 0;
+		Array.from(inventoryList.querySelectorAll("li")).forEach((li) => {
+		const sku = li.querySelector(".inventory-sku")?.textContent.toLowerCase() ?? "";
+		const desc = li.querySelector(".inventory-desc")?.textContent.toLowerCase() ?? "";
+			const vendor = (li.dataset.vendor ?? "").toLowerCase();
+			const policy = (li.dataset.returnPolicy ?? "").toLowerCase();
+			const matches = !query || sku.includes(query) || desc.includes(query) || vendor.includes(query) || policy.includes(query);
+			li.hidden = !matches;
+			if (matches) visibleCount++;
+		});
+		if (inventoryEmptyState) {
+			inventoryEmptyState.hidden = inventoryList.children.length === 0 ? false : visibleCount > 0;
+		}
+	};
+
+	inventorySearch?.addEventListener("input", filterInventoryBySearch);
+
+	const initializeData = async () => {
+		const storedVendors = await getVendorsFromStorage();
+		storedVendors.forEach((vendorName) => {
+			createVendorRow(vendorName, false);
+		});
+		filterVendorsBySearch();
+		populateVendorDropdown();
+
+		const storedInventory = await getInventoryFromStorage();
+		storedInventory.forEach((item) => {
+			createInventoryRow(item.sku, item.vendor, item.returnPolicy, item.description, false);
+		});
+		sortInventoryByDescription();
+	};
+
+	initializeData();
 }
