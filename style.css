@@ -440,6 +440,14 @@ th {
 	z-index: 1;
 }
 
+#dashboardRows tr.row-expired td {
+	background: #ffe3e3;
+}
+
+#dashboardRows tr.row-pullout td {
+	background: #fff3df;
+}
+
 .item-summary {
 	line-height: 1.2;
 }

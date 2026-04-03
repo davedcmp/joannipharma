@@ -75,7 +75,6 @@ const refs = {
 	inventoryItem: document.getElementById("inventoryItem"),
 	inventoryQty: document.getElementById("inventoryQty"),
 	inventoryExpiry: document.getElementById("inventoryExpiry"),
-	inventoryPullout: document.getElementById("inventoryPullout"),
 	inventoryRemarks: document.getElementById("inventoryRemarks"),
 	inventoryComment: document.getElementById("inventoryComment"),
 	cancelInventoryBtn: document.getElementById("cancelInventoryBtn"),
@@ -118,6 +117,7 @@ function bindEvents() {
 
 	refs.vendorForm.addEventListener("submit", onSaveVendor);
 	refs.cancelVendorBtn.addEventListener("click", resetVendorForm);
+	refs.vendorRows.addEventListener("click", onVendorTableClick);
 
 	refs.itemForm.addEventListener("submit", onSaveItem);
 	refs.itemVendorInput.addEventListener("input", onItemVendorTyped);
@@ -136,6 +136,7 @@ function bindEvents() {
 	});
 	refs.itemPolicyType.addEventListener("change", syncPolicyField);
 	refs.cancelItemBtn.addEventListener("click", resetItemForm);
+	refs.itemRows.addEventListener("click", onItemTableClick);
 
 	refs.newInventoryBtn.addEventListener("click", () => {
 		resetInventoryForm();
@@ -146,6 +147,9 @@ function bindEvents() {
 		renderDashboardRows();
 	});
 	refs.exportExcelBtn.addEventListener("click", exportDashboardExcel);
+	refs.dashboardRows.addEventListener("click", onDashboardTableClick);
+	refs.dashboardRows.addEventListener("change", onDashboardTableChange);
+	refs.dashboardRows.addEventListener("focusout", onDashboardTableFocusOut);
 	refs.inventoryForm.addEventListener("submit", onSaveInventory);
 	refs.inventoryItemInput.addEventListener("input", onInventoryItemTyped);
 	refs.inventoryItemInput.addEventListener("change", onInventoryItemTyped);
@@ -231,6 +235,84 @@ function renderAll() {
 	renderInventoryItemOptions();
 	renderDashboardRows();
 	syncPolicyField();
+}
+
+function onVendorTableClick(event) {
+	const button = event.target.closest("button[data-action][data-id]");
+	if (!button) {
+		return;
+	}
+
+	const { action, id } = button.dataset;
+	if (action === "edit-vendor") {
+		editVendor(id);
+		return;
+	}
+
+	if (action === "delete-vendor") {
+		deleteVendor(id);
+	}
+}
+
+function onItemTableClick(event) {
+	const button = event.target.closest("button[data-action][data-id]");
+	if (!button) {
+		return;
+	}
+
+	const { action, id } = button.dataset;
+	if (action === "edit-item") {
+		editItem(id);
+		return;
+	}
+
+	if (action === "delete-item") {
+		deleteItem(id);
+	}
+}
+
+function onDashboardTableClick(event) {
+	const button = event.target.closest("button[data-action][data-id]");
+	if (!button) {
+		return;
+	}
+
+	const { action, id } = button.dataset;
+	if (action === "edit-inventory") {
+		editInventory(id);
+		return;
+	}
+
+	if (action === "delete-inventory") {
+		deleteInventory(id);
+	}
+}
+
+function onDashboardTableChange(event) {
+	const field = event.target.dataset.inlineField;
+	const id = event.target.dataset.id;
+	if (!field || !id) {
+		return;
+	}
+
+	if (field === "remarks") {
+		updateInventoryInlineField(id, field, event.target.value);
+		return;
+	}
+
+	if (field === "comment") {
+		updateInventoryInlineField(id, field, event.target.value.trim());
+	}
+}
+
+function onDashboardTableFocusOut(event) {
+	const field = event.target.dataset.inlineField;
+	const id = event.target.dataset.id;
+	if (field !== "comment" || !id) {
+		return;
+	}
+
+	updateInventoryInlineField(id, field, event.target.value.trim());
 }
 
 function onSaveVendor(event) {
@@ -384,7 +466,6 @@ function onSaveInventory(event) {
 		itemId: refs.inventoryItem.value,
 		quantity: Number(refs.inventoryQty.value || 0),
 		expiryDate: refs.inventoryExpiry.value,
-		pulloutDate: refs.inventoryPullout.value,
 		remarks: refs.inventoryRemarks.value,
 		comment: refs.inventoryComment.value.trim()
 	};
@@ -426,7 +507,6 @@ function editInventory(id) {
 	closeInventoryPopup();
 	refs.inventoryQty.value = String(row.quantity);
 	refs.inventoryExpiry.value = row.expiryDate;
-	refs.inventoryPullout.value = row.pulloutDate || "";
 	refs.inventoryRemarks.value = REMARK_OPTIONS.includes(row.remarks) ? row.remarks : "";
 	refs.inventoryComment.value = row.comment || "";
 }
@@ -470,24 +550,14 @@ function renderVendorRows() {
 		`;
 		refs.vendorRows.appendChild(tr);
 	}
-
-	refs.vendorRows.querySelectorAll("button").forEach((button) => {
-		button.addEventListener("click", () => {
-			const id = button.dataset.id;
-			if (button.dataset.action === "edit-vendor") {
-				editVendor(id);
-			} else {
-				deleteVendor(id);
-			}
-		});
-	});
 }
 
 function renderItemRows() {
 	refs.itemRows.innerHTML = "";
+	const vendorMap = createMapById(state.vendors);
 
 	for (const item of state.items) {
-		const vendor = state.vendors.find((entry) => entry.id === item.vendorId);
+		const vendor = vendorMap.get(item.vendorId);
 		const tr = document.createElement("tr");
 		tr.innerHTML = `
 			<td>${escapeHtml(item.sku)}</td>
@@ -501,57 +571,26 @@ function renderItemRows() {
 		`;
 		refs.itemRows.appendChild(tr);
 	}
-
-	refs.itemRows.querySelectorAll("button").forEach((button) => {
-		button.addEventListener("click", () => {
-			const id = button.dataset.id;
-			if (button.dataset.action === "edit-item") {
-				editItem(id);
-			} else {
-				deleteItem(id);
-			}
-		});
-	});
 }
 
 function renderDashboardRows() {
 	refs.dashboardRows.innerHTML = "";
-	const searchTerm = state.dashboardSearch;
-	let visibleRowCount = 0;
+	const dashboardEntries = collectDashboardEntries(state.dashboardSearch);
 
-	for (const row of state.inventory) {
-		const item = state.items.find((entry) => entry.id === row.itemId);
-		if (!item) {
-			continue;
-		}
-		const vendor = state.vendors.find((entry) => entry.id === item.vendorId);
-		const policyText = policyLabel(item);
-		const haystack = [
-			item.sku,
-			item.description,
-			vendor ? vendor.name : "",
-			String(row.quantity ?? ""),
-			row.expiryDate || "",
-			policyText,
-			row.pulloutDate || "",
-			row.remarks || "",
-			row.comment || ""
-		].join(" ").toLowerCase();
-
-		if (searchTerm && !haystack.includes(searchTerm)) {
-			continue;
-		}
-
-		visibleRowCount += 1;
-
+	for (const entry of dashboardEntries) {
+		const { row, item, vendorName, pulloutDate, policyParts, rowStatus } = entry;
 		const tr = document.createElement("tr");
-		const policyParts = policyLines(item);
+		if (rowStatus === "expired") {
+			tr.classList.add("row-expired");
+		} else if (rowStatus === "pullout") {
+			tr.classList.add("row-pullout");
+		}
 		tr.innerHTML = `
 			<td>${escapeHtml(item.sku)}</td>
 			<td>
 				<div class="item-summary">
 					<div class="item-summary-main">${escapeHtml(item.description)}</div>
-					<div class="item-summary-sub">${escapeHtml(vendor ? vendor.name : "-")}</div>
+					<div class="item-summary-sub">${escapeHtml(vendorName)}</div>
 				</div>
 			</td>
 			<td>${row.quantity}</td>
@@ -562,7 +601,7 @@ function renderDashboardRows() {
 					<div class="policy-summary-sub">${escapeHtml(policyParts[1])}</div>
 				</div>
 			</td>
-			<td>${formatDate(row.pulloutDate)}</td>
+			<td>${formatMonthYear(pulloutDate)}</td>
 			<td>
 				<select class="dashboard-inline-select" data-inline-field="remarks" data-id="${row.id}" aria-label="Edit remarks">
 					<option value="" ${row.remarks ? "" : "selected"}></option>
@@ -590,37 +629,11 @@ function renderDashboardRows() {
 		refs.dashboardRows.appendChild(tr);
 	}
 
-	if (!visibleRowCount) {
+	if (!dashboardEntries.length) {
 		const tr = document.createElement("tr");
 		tr.innerHTML = `<td colspan="9" class="empty-state-cell">No matching dashboard rows.</td>`;
 		refs.dashboardRows.appendChild(tr);
 	}
-
-	refs.dashboardRows.querySelectorAll("button").forEach((button) => {
-		button.addEventListener("click", () => {
-			const id = button.dataset.id;
-			if (button.dataset.action === "edit-inventory") {
-				editInventory(id);
-			} else {
-				deleteInventory(id);
-			}
-		});
-	});
-
-	refs.dashboardRows.querySelectorAll("select[data-inline-field='remarks']").forEach((select) => {
-		select.addEventListener("change", () => {
-			updateInventoryInlineField(select.dataset.id, "remarks", select.value);
-		});
-	});
-
-	refs.dashboardRows.querySelectorAll("textarea[data-inline-field='comment']").forEach((textarea) => {
-		textarea.addEventListener("change", () => {
-			updateInventoryInlineField(textarea.dataset.id, "comment", textarea.value.trim());
-		});
-		textarea.addEventListener("blur", () => {
-			updateInventoryInlineField(textarea.dataset.id, "comment", textarea.value.trim());
-		});
-	});
 }
 
 function renderItemVendorOptions() {
@@ -767,6 +780,7 @@ function closeItemVendorPopup() {
 
 function renderInventoryItemOptions() {
 	const previous = refs.inventoryItem.value;
+	const vendorMap = createMapById(state.vendors);
 	inventoryCombo.options = [];
 	inventoryCombo.labelToId.clear();
 	inventoryCombo.idToLabel.clear();
@@ -788,7 +802,7 @@ function renderInventoryItemOptions() {
 	refs.inventoryItemInput.placeholder = "Type SKU or description";
 	refs.newInventoryBtn.disabled = false;
 	for (const item of state.items) {
-		const vendor = state.vendors.find((entry) => entry.id === item.vendorId);
+		const vendor = vendorMap.get(item.vendorId);
 		const label = `${item.sku} - ${item.description} (${vendor ? vendor.name : "No vendor"})`;
 		inventoryCombo.options.push({ id: item.id, label, lower: label.toLowerCase() });
 		inventoryCombo.labelToId.set(label.toLowerCase(), item.id);
@@ -935,8 +949,6 @@ function closeMessageModal() {
 }
 
 function exportDashboardExcel() {
-	const searchTerm = state.dashboardSearch;
-
 	const header = [
 		"SKU#",
 		"Description",
@@ -951,41 +963,16 @@ function exportDashboardExcel() {
 
 	const dataRows = [];
 
-	for (const row of state.inventory) {
-		const item = state.items.find((entry) => entry.id === row.itemId);
-		if (!item) {
-			continue;
-		}
-		const vendor = state.vendors.find((entry) => entry.id === item.vendorId);
-		const vendorName = vendor ? vendor.name : "-";
-		const policy = policyLabel(item);
-
-		if (searchTerm) {
-			const haystack = [
-				item.sku,
-				item.description,
-				vendorName,
-				String(row.quantity ?? ""),
-				row.expiryDate || "",
-				policy,
-				row.pulloutDate || "",
-				row.remarks || "",
-				row.comment || ""
-			].join(" ").toLowerCase();
-
-			if (!haystack.includes(searchTerm)) {
-				continue;
-			}
-		}
-
+	for (const entry of collectDashboardEntries(state.dashboardSearch)) {
+		const { row, item, vendorName, policyText, pulloutDate } = entry;
 		dataRows.push([
 			item.sku,
 			item.description,
 			vendorName,
 			row.quantity ?? 0,
 			row.expiryDate || "",
-			policy,
-			row.pulloutDate || "",
+			policyText,
+			formatMonthYear(pulloutDate),
 			row.remarks || "",
 			row.comment || ""
 		]);
@@ -1010,6 +997,7 @@ function exportDashboardExcel() {
 }
 
 function exportAllCsv() {
+	const itemMap = createMapById(state.items);
 	const header = [
 		"record_type",
 		"id",
@@ -1060,7 +1048,17 @@ function exportAllCsv() {
 			"",
 			""
 		]),
-		...state.inventory.map((entry) => [
+		...state.inventory.map((entry) => buildInventoryCsvRow(entry, itemMap))
+	];
+
+	downloadCsv("joanni_pharma_export.csv", header, rows);
+}
+
+function buildInventoryCsvRow(entry, itemMap) {
+	const item = itemMap.get(entry.itemId);
+	const pulloutDate = calculatePulloutDate(entry.expiryDate || "", item);
+
+	return [
 			"inventory",
 			entry.id,
 			"",
@@ -1072,13 +1070,60 @@ function exportAllCsv() {
 			entry.itemId,
 			String(entry.quantity || 0),
 			entry.expiryDate || "",
-			entry.pulloutDate || "",
+			pulloutDate,
 			entry.remarks || "",
 			entry.comment || ""
-		])
 	];
+}
 
-	downloadCsv("joanni_pharma_export.csv", header, rows);
+function collectDashboardEntries(searchTerm = "") {
+	const itemMap = createMapById(state.items);
+	const vendorMap = createMapById(state.vendors);
+	const normalizedSearchTerm = String(searchTerm || "").trim().toLowerCase();
+	const entries = [];
+
+	for (const row of state.inventory) {
+		const item = itemMap.get(row.itemId);
+		if (!item) {
+			continue;
+		}
+
+		const vendor = vendorMap.get(item.vendorId);
+		const vendorName = vendor ? vendor.name : "-";
+		const pulloutDate = calculatePulloutDate(row.expiryDate, item);
+		const policyText = policyLabel(item);
+		const haystack = [
+			item.sku,
+			item.description,
+			vendorName,
+			String(row.quantity ?? ""),
+			row.expiryDate || "",
+			policyText,
+			pulloutDate || "",
+			row.remarks || "",
+			row.comment || ""
+		].join(" ").toLowerCase();
+
+		if (normalizedSearchTerm && !haystack.includes(normalizedSearchTerm)) {
+			continue;
+		}
+
+		entries.push({
+			row,
+			item,
+			vendorName,
+			pulloutDate,
+			policyText,
+			policyParts: policyLines(item),
+			rowStatus: getInventoryRowStatus(row.expiryDate, pulloutDate)
+		});
+	}
+
+	return entries;
+}
+
+function createMapById(entries) {
+	return new Map(entries.map((entry) => [entry.id, entry]));
 }
 
 function onImportCsv(event) {
@@ -1164,7 +1209,6 @@ function importCsvText(text) {
 				itemId: (row[8] || "").trim(),
 				quantity: Number(row[9] || 0),
 				expiryDate: (row[10] || "").trim(),
-				pulloutDate: (row[11] || "").trim(),
 				remarks: REMARK_OPTIONS.includes(row[12]) ? row[12] : "",
 				comment: row[13] || ""
 			}))
@@ -1195,7 +1239,6 @@ function importCsvText(text) {
 			itemId: (row[1] || "").trim(),
 			quantity: Number(row[2] || 0),
 			expiryDate: (row[3] || "").trim(),
-			pulloutDate: (row[4] || "").trim(),
 			remarks: REMARK_OPTIONS.includes(row[5]) ? row[5] : "",
 			comment: row[6] || ""
 		})).filter((entry) => entry.itemId);
@@ -1294,16 +1337,92 @@ function matchesHeader(actual, expected) {
 
 function policyLabel(item) {
 	if (item.returnPolicyType === "expiry_month") {
-		return "On the month of expiry";
+		return "Month of expiry";
 	}
 	return `${item.returnPolicyMonths || 0} month(s) before expiry`;
 }
 
 function policyLines(item) {
 	if (item.returnPolicyType === "expiry_month") {
-		return ["On the month", "of expiry"];
+		return ["Month", "of expiry"];
 	}
 	return [`${item.returnPolicyMonths || 0} month(s)`, "before expiry"];
+}
+
+function calculatePulloutDate(expiryDate, item) {
+	if (!expiryDate || !item) {
+		return "";
+	}
+
+	const parts = String(expiryDate).split("-");
+	if (parts.length < 2) {
+		return "";
+	}
+	const year = Number(parts[0]);
+	const monthIndex = Number(parts[1]) - 1;
+	if (!Number.isInteger(year) || !Number.isInteger(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+		return "";
+	}
+
+	const baseDate = new Date(year, monthIndex, 1);
+
+	const pullout = new Date(baseDate);
+	if (item.returnPolicyType === "months_before_expiry") {
+		const monthsBefore = Number(item.returnPolicyMonths || 0);
+		if (monthsBefore > 0) {
+			pullout.setMonth(pullout.getMonth() - monthsBefore);
+		}
+	}
+
+	const pulloutYear = pullout.getFullYear();
+	const pulloutMonth = String(pullout.getMonth() + 1).padStart(2, "0");
+	return `${pulloutMonth}/${pulloutYear}`;
+}
+
+function formatMonthYear(value) {
+	return value || "-";
+}
+
+function getInventoryRowStatus(expiryDate, pulloutDate) {
+	const today = new Date();
+	today.setHours(0, 0, 0, 0);
+
+	const expiry = new Date(expiryDate);
+	if (!Number.isNaN(expiry.valueOf())) {
+		expiry.setHours(0, 0, 0, 0);
+		if (expiry < today) {
+			return "expired";
+		}
+	}
+
+	const pulloutKey = monthYearKey(pulloutDate);
+	if (!pulloutKey) {
+		return "normal";
+	}
+
+	const currentMonth = String(today.getMonth() + 1).padStart(2, "0");
+	const currentKey = `${today.getFullYear()}-${currentMonth}`;
+	if (pulloutKey <= currentKey) {
+		return "pullout";
+	}
+
+	return "normal";
+}
+
+function monthYearKey(monthYear) {
+	const value = String(monthYear || "").trim();
+	const [month, year] = value.split("/");
+	if (!month || !year) {
+		return "";
+	}
+
+	const monthNumber = Number(month);
+	const yearNumber = Number(year);
+	if (!Number.isInteger(monthNumber) || !Number.isInteger(yearNumber) || monthNumber < 1 || monthNumber > 12) {
+		return "";
+	}
+
+	return `${yearNumber}-${String(monthNumber).padStart(2, "0")}`;
 }
 
 function formatDate(value) {
