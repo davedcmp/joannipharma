@@ -34,10 +34,7 @@
 			<div class="main-grid-card">
 				<div class="main-grid-header">
 					<h2>Inventory</h2>
-					<div class="main-grid-tools">
-						<input id="main-grid-search" type="search" aria-label="Search inventory table" placeholder="Search SKU, description, vendor" autocomplete="off" />
-						<button id="add-inventory-btn" type="button" class="add-btn" aria-label="Add new inventory item">+</button>
-					</div>
+					<button id="add-inventory-btn" type="button" class="add-btn" aria-label="Add new inventory item">+</button>
 				</div>
 				<div class="main-grid-scroll">
 					<table class="main-grid-table">
@@ -51,12 +48,11 @@
 								<th scope="col">Expiry Date</th>
 								<th scope="col">Pull-out Date</th>
 								<th scope="col">Remarks</th>
-								<th scope="col">Actions</th>
 							</tr>
 						</thead>
 						<tbody>
 							<tr>
-								<td colspan="9" class="main-grid-empty">No records yet.</td>
+								<td colspan="8" class="main-grid-empty">No records yet.</td>
 							</tr>
 						</tbody>
 					</table>

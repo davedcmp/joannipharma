@@ -27,8 +27,6 @@ const inventoryList = document.getElementById("inventory-list");
 const inventoryEmptyState = document.getElementById("inventory-empty-state");
 const inventorySearch = document.getElementById("inventory-search");
 const addInventoryBtn = document.getElementById("add-inventory-btn");
-const mainGridSearch = document.getElementById("main-grid-search");
-const mainGridBody = document.querySelector(".main-grid-table tbody");
 let selectedInventoryItem = null;
 
 const confirmationModal = document.getElementById("confirmation-modal");
@@ -152,10 +150,6 @@ const saveInventoryToStorage = async () => {
 		description: li.querySelector(".inventory-desc")?.textContent ?? "",
 		vendor: li.dataset.vendor ?? "",
 		returnPolicy: li.dataset.returnPolicy ?? "",
-		quantity: li.dataset.quantity ?? "",
-		expiryDate: li.dataset.expiryDate ?? "",
-		pullOutDate: li.dataset.pullOutDate ?? "",
-		remarks: li.dataset.remarks ?? "",
 	}));
 	try {
 		writeArrayToLocalStorage(INVENTORY_STORAGE_KEY, inventory);
@@ -335,271 +329,70 @@ if (menuButton && menuOverlay) {
 		toggleView(inventoryView, false);
 	};
 
-	const getMainGridQuery = () => mainGridSearch?.value.trim().toLowerCase() ?? "";
+	const addEditableRowToMainGrid = async () => {
+		const mainGridTable = document.querySelector(".main-grid-table tbody");
+		if (!mainGridTable) return;
 
-	const itemMatchesMainGridQuery = (item, query) => {
-		if (!query) {
-			return true;
+		// Remove empty state if it exists
+		const emptyState = mainGridTable.querySelector(".main-grid-empty");
+		if (emptyState) {
+			emptyState.parentElement.remove();
 		}
 
-		const haystack = [
-			item.sku,
-			item.description,
-			item.vendor,
-			item.returnPolicy,
-			item.quantity,
-			item.expiryDate,
-			item.pullOutDate,
-			item.remarks,
-		]
-			.map((value) => String(value ?? "").toLowerCase())
-			.join(" ");
+		const newRow = document.createElement("tr");
+		newRow.className = "main-grid-edit-row";
 
-		return haystack.includes(query);
-	};
-
-	const renderMainGridEmpty = () => {
-		if (!mainGridBody) {
-			return;
-		}
-
-		mainGridBody.innerHTML = "";
-		const row = document.createElement("tr");
-		const cell = document.createElement("td");
-		cell.colSpan = 9;
-		cell.className = "main-grid-empty";
-		cell.textContent = "No records yet.";
-		row.appendChild(cell);
-		mainGridBody.appendChild(row);
-	};
-
-	const rebuildInventoryListFromStorage = (inventoryItems) => {
-		if (!inventoryList || !inventoryEmptyState) {
-			return;
-		}
-
-		inventoryList.innerHTML = "";
-		clearSelectedInventory();
-		inventoryItems.forEach((item) => {
-			createInventoryRow(item.sku, item.vendor, item.returnPolicy, item.description, false, item);
-		});
-		sortInventoryByDescription();
-		filterInventoryBySearch();
-	};
-
-	const renderMainGridFromData = (inventoryItems) => {
-		if (!mainGridBody) {
-			return;
-		}
-
-		const query = getMainGridQuery();
-		const visibleItems = inventoryItems.filter((item) => itemMatchesMainGridQuery(item, query));
-
-		if (visibleItems.length === 0) {
-			renderMainGridEmpty();
-			return;
-		}
-
-		mainGridBody.innerHTML = "";
-
-		visibleItems.forEach((item) => {
-			const row = document.createElement("tr");
-
-			const checkboxCell = document.createElement("td");
-			checkboxCell.className = "checkbox-cell";
-			const checkbox = document.createElement("input");
-			checkbox.type = "checkbox";
-			checkbox.className = "grid-checkbox";
-			checkboxCell.appendChild(checkbox);
-			row.appendChild(checkboxCell);
-
-			const values = [
-				{ label: "SKU", value: item.sku || "-" },
-				{ label: "Description", value: item.description || "-" },
-				{ label: "Quantity", value: item.quantity || "-" },
-				{ label: "Return Policy", value: item.returnPolicy || "-" },
-				{ label: "Expiry Date", value: item.expiryDate || "-" },
-				{ label: "Pull-out Date", value: item.pullOutDate || "-" },
-				{ label: "Remarks", value: item.remarks || "-" },
-			];
-
-			values.forEach((entry) => {
-				const cell = document.createElement("td");
-				cell.setAttribute("data-label", entry.label);
-				cell.textContent = entry.value;
-				row.appendChild(cell);
-			});
-
-			const actionCell = document.createElement("td");
-			actionCell.setAttribute("data-label", "Actions");
-			const editButton = document.createElement("button");
-			editButton.type = "button";
-			editButton.className = "grid-action-btn";
-			editButton.textContent = "Edit";
-			editButton.addEventListener("click", () => {
-				renderMainGridEditRow(item.sku, item);
-			});
-
-			const deleteButton = document.createElement("button");
-			deleteButton.type = "button";
-			deleteButton.className = "grid-action-btn delete";
-			deleteButton.textContent = "Delete";
-			deleteButton.addEventListener("click", async () => {
-				if (!(await showConfirm(`Delete item "${item.sku}"?`))) {
-					return;
-				}
-
-				const inventoryItemsLatest = await getInventoryFromStorage();
-				const nextItems = inventoryItemsLatest.filter((entry) => String(entry.sku).toLowerCase() !== String(item.sku).toLowerCase());
-				writeArrayToLocalStorage(INVENTORY_STORAGE_KEY, nextItems);
-				rebuildInventoryListFromStorage(nextItems);
-				renderMainGridFromData(nextItems);
-			});
-
-			actionCell.append(editButton, deleteButton);
-			row.appendChild(actionCell);
-			mainGridBody.appendChild(row);
-		});
-	};
-
-	const renderMainGridFromStorage = async () => {
-		const inventoryItems = await getInventoryFromStorage();
-		renderMainGridFromData(inventoryItems);
-	};
-
-	const renderMainGridEditRow = async (originalSku = "", seedItem = {}) => {
-		if (!mainGridBody) {
-			return;
-		}
-
-		mainGridBody.innerHTML = "";
-		const row = document.createElement("tr");
-		row.className = "main-grid-edit-row";
-
+		// Checkbox
 		const checkboxCell = document.createElement("td");
 		checkboxCell.className = "checkbox-cell";
 		const checkbox = document.createElement("input");
 		checkbox.type = "checkbox";
 		checkbox.className = "grid-checkbox";
 		checkboxCell.appendChild(checkbox);
-		row.appendChild(checkboxCell);
+		newRow.appendChild(checkboxCell);
 
+		// SKU# input with autocomplete
 		const skuCell = document.createElement("td");
-		skuCell.setAttribute("data-label", "SKU");
 		const skuWrapper = document.createElement("div");
 		skuWrapper.className = "sku-input-wrapper";
+		
 		const skuInput = document.createElement("input");
 		skuInput.type = "text";
-		skuInput.className = "grid-input";
 		skuInput.placeholder = "SKU#";
-		skuInput.value = seedItem.sku ?? "";
+		skuInput.className = "grid-input";
+		
 		const suggestionsList = document.createElement("div");
 		suggestionsList.className = "sku-suggestions";
 		suggestionsList.hidden = true;
-		skuWrapper.append(skuInput, suggestionsList);
-		skuCell.appendChild(skuWrapper);
-		row.appendChild(skuCell);
-
-		const descriptionCell = document.createElement("td");
-		descriptionCell.setAttribute("data-label", "Description");
-		const descriptionInput = document.createElement("input");
-		descriptionInput.type = "text";
-		descriptionInput.className = "grid-input";
-		descriptionInput.placeholder = "Description";
-		descriptionInput.value = seedItem.description ?? "";
-		descriptionCell.appendChild(descriptionInput);
-		row.appendChild(descriptionCell);
-
-		const quantityCell = document.createElement("td");
-		quantityCell.setAttribute("data-label", "Quantity");
-		const quantityInput = document.createElement("input");
-		quantityInput.type = "number";
-		quantityInput.className = "grid-input";
-		quantityInput.placeholder = "Qty";
-		quantityInput.value = seedItem.quantity ?? "";
-		quantityCell.appendChild(quantityInput);
-		row.appendChild(quantityCell);
-
-		const policyCell = document.createElement("td");
-		policyCell.setAttribute("data-label", "Return Policy");
-		const policyInput = document.createElement("input");
-		policyInput.type = "text";
-		policyInput.className = "grid-input";
-		policyInput.placeholder = "Policy";
-		policyInput.value = seedItem.returnPolicy ?? "";
-		policyCell.appendChild(policyInput);
-		row.appendChild(policyCell);
-
-		const expiryCell = document.createElement("td");
-		expiryCell.setAttribute("data-label", "Expiry Date");
-		const expiryInput = document.createElement("input");
-		expiryInput.type = "date";
-		expiryInput.className = "grid-input";
-		expiryInput.value = seedItem.expiryDate ?? "";
-		expiryCell.appendChild(expiryInput);
-		row.appendChild(expiryCell);
-
-		const pullOutCell = document.createElement("td");
-		pullOutCell.setAttribute("data-label", "Pull-out Date");
-		const pullOutInput = document.createElement("input");
-		pullOutInput.type = "date";
-		pullOutInput.className = "grid-input";
-		pullOutInput.value = seedItem.pullOutDate ?? "";
-		pullOutCell.appendChild(pullOutInput);
-		row.appendChild(pullOutCell);
-
-		const remarksCell = document.createElement("td");
-		remarksCell.setAttribute("data-label", "Remarks");
-		const remarksInput = document.createElement("input");
-		remarksInput.type = "text";
-		remarksInput.className = "grid-input";
-		remarksInput.placeholder = "Remarks";
-		remarksInput.value = seedItem.remarks ?? "";
-		remarksCell.appendChild(remarksInput);
-		row.appendChild(remarksCell);
-
-		const actionCell = document.createElement("td");
-		actionCell.setAttribute("data-label", "Actions");
-		const saveButton = document.createElement("button");
-		saveButton.type = "button";
-		saveButton.className = "grid-action-btn";
-		saveButton.textContent = "Save";
-		const cancelButton = document.createElement("button");
-		cancelButton.type = "button";
-		cancelButton.className = "grid-action-btn";
-		cancelButton.textContent = "Cancel";
-		actionCell.append(saveButton, cancelButton);
-		row.appendChild(actionCell);
-
-		mainGridBody.appendChild(row);
-
-		let selectedVendorValue = seedItem.vendor ?? "";
-
+		
 		const hideSuggestions = () => {
 			suggestionsList.hidden = true;
 			suggestionsList.innerHTML = "";
 		};
-
+		
 		const showSuggestions = async (query) => {
 			if (!query.trim()) {
 				hideSuggestions();
 				return;
 			}
-
+			
 			const allInventory = await getInventoryFromStorage();
-			const filtered = allInventory.filter((item) => String(item.sku ?? "").toLowerCase().includes(query.toLowerCase()));
+			const filtered = allInventory.filter((item) =>
+				item.sku.toLowerCase().includes(query.toLowerCase())
+			);
+			
 			if (filtered.length === 0) {
 				hideSuggestions();
 				return;
 			}
-
+			
 			suggestionsList.innerHTML = "";
 			filtered.forEach((item) => {
 				const div = document.createElement("div");
 				div.className = "sku-suggestion-item";
 				div.innerHTML = `
 					<div class="sku-suggestion-main">
-						<strong>${item.sku ?? ""}</strong>
+						<strong>${item.sku}</strong>
 						<span>${item.description || "No description"}</span>
 					</div>
 					<div class="sku-suggestion-meta">
@@ -608,78 +401,90 @@ if (menuButton && menuOverlay) {
 					</div>
 				`;
 				div.addEventListener("click", () => {
-					skuInput.value = item.sku ?? "";
-					descriptionInput.value = item.description ?? "";
-					selectedVendorValue = item.vendor ?? selectedVendorValue;
-					policyInput.value = item.returnPolicy ?? "";
+				skuInput.value = item.sku;
+				descSpan.textContent = item.description || "";
+				vendorSpan.textContent = item.vendor || "";
+					policyInput.value = item.returnPolicy || "";
 					hideSuggestions();
 				});
 				suggestionsList.appendChild(div);
 			});
-
+			
 			suggestionsList.hidden = false;
 		};
-
-		skuInput.addEventListener("input", (event) => {
-			showSuggestions(event.target.value);
+		
+		skuInput.addEventListener("input", (e) => {
+			showSuggestions(e.target.value);
 		});
-
+		
 		skuInput.addEventListener("blur", () => {
-			window.setTimeout(hideSuggestions, 160);
+			// Delay to allow click on suggestion to register
+			setTimeout(hideSuggestions, 200);
 		});
+		
+		skuWrapper.appendChild(skuInput);
+		skuWrapper.appendChild(suggestionsList);
+		skuCell.appendChild(skuWrapper);
+		newRow.appendChild(skuCell);
 
-		saveButton.addEventListener("click", async () => {
-			const nextItem = {
-				sku: skuInput.value.trim(),
-				description: descriptionInput.value.trim(),
-				vendor: selectedVendorValue,
-				returnPolicy: policyInput.value.trim(),
-				quantity: quantityInput.value.trim(),
-				expiryDate: expiryInput.value,
-				pullOutDate: pullOutInput.value,
-				remarks: remarksInput.value.trim(),
-			};
+		// Description + Vendor stacked (non-editable, populated by SKU selection)
+		const descVendorCell = document.createElement("td");
+		descVendorCell.className = "grid-desc-vendor-cell";
+		const descSpan = document.createElement("span");
+		descSpan.className = "grid-desc-text";
+		descSpan.textContent = "";
+		const vendorSpan = document.createElement("span");
+		vendorSpan.className = "grid-vendor-text";
+		vendorSpan.textContent = "";
+		descVendorCell.appendChild(descSpan);
+		descVendorCell.appendChild(vendorSpan);
+		newRow.appendChild(descVendorCell);
 
-			if (!nextItem.sku) {
-				await showAlert("SKU is required.");
-				skuInput.focus();
-				return;
-			}
+		// Quantity input
+		const qtyCell = document.createElement("td");
+		const qtyInput = document.createElement("input");
+		qtyInput.type = "number";
+		qtyInput.placeholder = "Qty";
+		qtyInput.className = "grid-input";
+		qtyCell.appendChild(qtyInput);
+		newRow.appendChild(qtyCell);
 
-			const inventoryItems = await getInventoryFromStorage();
-			const duplicateSku = inventoryItems
-				.filter((entry) => String(entry.sku).toLowerCase() !== String(originalSku).toLowerCase())
-				.some((entry) => String(entry.sku).toLowerCase() === String(nextItem.sku).toLowerCase());
+		// Return Policy input
+		const policyCell = document.createElement("td");
+		const policyInput = document.createElement("input");
+		policyInput.type = "text";
+		policyInput.placeholder = "Policy";
+		policyInput.className = "grid-input";
+		policyCell.appendChild(policyInput);
+		newRow.appendChild(policyCell);
 
-			if (duplicateSku) {
-				await showAlert("SKU already exists. Use a unique SKU.");
-				skuInput.focus();
-				skuInput.select();
-				return;
-			}
+		// Expiry Date input
+		const expiryDateCell = document.createElement("td");
+		const expiryDateInput = document.createElement("input");
+		expiryDateInput.type = "date";
+		expiryDateInput.className = "grid-input";
+		expiryDateCell.appendChild(expiryDateInput);
+		newRow.appendChild(expiryDateCell);
 
-			let nextItems = inventoryItems;
-			const editIndex = inventoryItems.findIndex((entry) => String(entry.sku).toLowerCase() === String(originalSku).toLowerCase());
-			if (editIndex >= 0) {
-				nextItems = inventoryItems.map((entry, index) => (index === editIndex ? { ...entry, ...nextItem } : entry));
-			} else {
-				nextItems = [...inventoryItems, nextItem];
-			}
+		// Pull-out Date input
+		const dateCell = document.createElement("td");
+		const dateInput = document.createElement("input");
+		dateInput.type = "date";
+		dateInput.className = "grid-input";
+		dateCell.appendChild(dateInput);
+		newRow.appendChild(dateCell);
 
-			writeArrayToLocalStorage(INVENTORY_STORAGE_KEY, nextItems);
-			rebuildInventoryListFromStorage(nextItems);
-			renderMainGridFromData(nextItems);
-		});
+		// Remarks input
+		const remarksCell = document.createElement("td");
+		const remarksInput = document.createElement("input");
+		remarksInput.type = "text";
+		remarksInput.placeholder = "Remarks";
+		remarksInput.className = "grid-input";
+		remarksCell.appendChild(remarksInput);
+		newRow.appendChild(remarksCell);
 
-		cancelButton.addEventListener("click", async () => {
-			renderMainGridFromStorage();
-		});
-
+		mainGridTable.appendChild(newRow);
 		skuInput.focus();
-	};
-
-	const addEditableRowToMainGrid = () => {
-		renderMainGridEditRow("", {});
 	};
 
 	menuButton.addEventListener("click", () => {
@@ -720,10 +525,6 @@ if (menuButton && menuOverlay) {
 
 	addInventoryBtn?.addEventListener("click", () => {
 		addEditableRowToMainGrid();
-	});
-
-	mainGridSearch?.addEventListener("input", () => {
-		renderMainGridFromStorage();
 	});
 
 	const clearSelectedVendor = () => {
@@ -813,7 +614,6 @@ if (menuButton && menuOverlay) {
 			vendorEmptyState.hidden = vendorList.children.length > 0;
 			await saveVendorsToStorage();
 			filterVendorsBySearch();
-			populateVendorDropdown();
 		});
 
 		listItem.addEventListener("click", () => {
@@ -872,7 +672,6 @@ if (menuButton && menuOverlay) {
 					}
 				});
 				await saveInventoryToStorage();
-				renderMainGridFromStorage();
 			}
 			
 			clearSelectedVendor();
@@ -937,7 +736,7 @@ if (menuButton && menuOverlay) {
 		inventorySkuInput.select();
 	};
 
-	const createInventoryRow = (sku, vendor, returnPolicy, description, persist = true, extras = {}) => {
+	const createInventoryRow = (sku, vendor, returnPolicy, description, persist = true) => {
 		if (!inventoryList || !inventoryEmptyState) {
 			return;
 		}
@@ -945,10 +744,6 @@ if (menuButton && menuOverlay) {
 		const listItem = document.createElement("li");
 		listItem.dataset.vendor = vendor;
 		listItem.dataset.returnPolicy = returnPolicy;
-		listItem.dataset.quantity = extras.quantity ?? "";
-		listItem.dataset.expiryDate = extras.expiryDate ?? "";
-		listItem.dataset.pullOutDate = extras.pullOutDate ?? "";
-		listItem.dataset.remarks = extras.remarks ?? "";
 
 		const skuSpan = document.createElement("span");
 		skuSpan.className = "inventory-sku";
@@ -1004,7 +799,6 @@ if (menuButton && menuOverlay) {
 			listItem.remove();
 			inventoryEmptyState.hidden = inventoryList.children.length > 0;
 			await saveInventoryToStorage();
-			renderMainGridFromStorage();
 		});
 
 		listItem.addEventListener("click", () => {
@@ -1076,11 +870,9 @@ if (menuButton && menuOverlay) {
 			clearSelectedInventory();
 			await saveInventoryToStorage();
 			sortInventoryByDescription();
-			renderMainGridFromStorage();
 		} else {
 			createInventoryRow(sku, vendor, returnPolicy, description);
 			sortInventoryByDescription();
-			renderMainGridFromStorage();
 		}
 
 		inventorySkuInput.value = "";
@@ -1149,10 +941,9 @@ if (menuButton && menuOverlay) {
 
 		const storedInventory = await getInventoryFromStorage();
 		storedInventory.forEach((item) => {
-			createInventoryRow(item.sku, item.vendor, item.returnPolicy, item.description, false, item);
+			createInventoryRow(item.sku, item.vendor, item.returnPolicy, item.description, false);
 		});
 		sortInventoryByDescription();
-		renderMainGridFromData(storedInventory);
 	};
 
 	initializeData();
