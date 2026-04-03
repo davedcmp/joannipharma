@@ -23,7 +23,6 @@
 				<h1>Joanni Pharma Console</h1>
 				</div>
 			</div>
-			<button id="homeBtn" class="ghost-btn" type="button">Dashboard</button>
 		</header>
 
 		<button id="menuBackdrop" class="menu-backdrop" type="button" aria-hidden="true" tabindex="-1" hidden></button>
@@ -33,9 +32,9 @@
 				<h2>Main Menu</h2>
 
 				<details open>
-					<summary>Maintenance</summary>
-					<button id="openVendorBtn" type="button" class="menu-link close-menu-link">Vendor Maintenance</button>
-					<button id="openItemBtn" type="button" class="menu-link close-menu-link">Item Maintenance</button>
+					<summary>Records</summary>
+					<button id="openVendorBtn" type="button" class="menu-link close-menu-link">Vendors</button>
+					<button id="openItemBtn" type="button" class="menu-link close-menu-link">Items</button>
 				</details>
 
 				<details open>
@@ -47,10 +46,6 @@
 			</aside>
 
 			<section id="dashboardSection" class="content-section">
-				<div class="section-header">
-					<h2>Dashboard</h2>
-				</div>
-
 				<div class="dashboard-toolbar card">
 					<label class="dashboard-search" for="dashboardSearchInput">
 						<span>Search</span>
@@ -58,7 +53,7 @@
 					</label>
 					<div class="toolbar-actions">
 						<button id="exportExcelBtn" class="ghost-btn" type="button">Export to Excel</button>
-						<button id="newInventoryBtn" class="primary-btn" type="button">Add row</button>
+						<button id="newInventoryBtn" class="primary-btn" type="button">Add Line</button>
 					</div>
 				</div>
 
@@ -69,9 +64,9 @@
 								<th>SKU#</th>
 								<th>Description / Vendor</th>
 								<th>Qty</th>
-								<th>Expiry Date</th>
+								<th>Expiry</th>
 								<th>Return Policy</th>
-								<th>Pull-out Date</th>
+								<th>Pull-out</th>
 								<th>Remarks</th>
 								<th>Comment</th>
 								<th>Actions</th>
@@ -173,7 +168,7 @@
 	<div id="inventoryModal" class="modal-overlay" hidden>
 		<form id="inventoryForm" class="card form-card modal-form" autocomplete="off">
 			<div class="modal-head">
-				<h3>Inventory Entry</h3>
+				<h3>Line Entry</h3>
 				<button type="button" id="closeInventoryModalBtn" class="ghost-btn modal-close" aria-label="Close">Close</button>
 			</div>
 			<input id="inventoryId" type="hidden">
@@ -189,7 +184,7 @@
 			<input id="inventoryQty" type="number" min="0" step="1" required>
 
 			<label for="inventoryExpiry">Expiry Date</label>
-			<input id="inventoryExpiry" type="date" required>
+			<input id="inventoryExpiry" type="month" required>
 
 			<label for="inventoryRemarks">Remarks</label>
 			<select id="inventoryRemarks">

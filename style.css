@@ -513,13 +513,26 @@ th {
 	fill: currentColor;
 }
 
+.dashboard-inline-expiry,
+.dashboard-inline-pullout,
 .dashboard-inline-select,
 .dashboard-inline-comment {
+	display: block;
 	width: 100%;
 	min-width: 0;
+	margin: 0;
+	font-family: inherit;
 	font-size: 0.78rem;
 	padding: 0.35rem 0.45rem;
 	border-radius: 8px;
+}
+
+.dashboard-inline-expiry,
+.dashboard-inline-pullout {
+	min-width: 118px;
+	height: 31px;
+	min-height: 31px;
+	line-height: 1.2;
 }
 
 .dashboard-inline-select {
@@ -534,7 +547,9 @@ th {
 	height: 31px;
 	min-height: 31px;
 	resize: none;
-	line-height: 1.2;
+	padding-top: 0;
+	padding-bottom: 0;
+	line-height: 31px;
 	overflow: hidden;
 }
 

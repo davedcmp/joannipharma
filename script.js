@@ -104,7 +104,9 @@ function bindEvents() {
 		}
 	});
 
-	refs.homeBtn.addEventListener("click", () => showSection("dashboard"));
+	if (refs.homeBtn) {
+		refs.homeBtn.addEventListener("click", () => showSection("dashboard"));
+	}
 	refs.closeVendorSectionBtn.addEventListener("click", () => showSection("dashboard"));
 	refs.closeItemSectionBtn.addEventListener("click", () => showSection("dashboard"));
 	refs.openVendorBtn.addEventListener("click", () => {
@@ -308,17 +310,21 @@ function onDashboardTableChange(event) {
 
 	if (field === "remarks") {
 		stageInventoryInlineField(id, field, event.target.value);
+		return;
 	}
 }
 
 function onDashboardTableInput(event) {
 	const field = event.target.dataset.inlineField;
 	const id = event.target.dataset.id;
-	if (field !== "comment" || !id) {
+	if (!field || !id) {
 		return;
 	}
 
-	stageInventoryInlineField(id, field, event.target.value, { rerenderIfNeeded: true });
+	if (field === "comment") {
+		stageInventoryInlineField(id, field, event.target.value, { rerenderIfNeeded: true });
+		return;
+	}
 }
 
 function onSaveVendor(event) {
@@ -471,7 +477,7 @@ function onSaveInventory(event) {
 		id,
 		itemId: refs.inventoryItem.value,
 		quantity: Number(refs.inventoryQty.value || 0),
-		expiryDate: refs.inventoryExpiry.value,
+		expiryDate: monthInputToDateString(refs.inventoryExpiry.value),
 		remarks: refs.inventoryRemarks.value,
 		comment: refs.inventoryComment.value.trim()
 	};
@@ -512,7 +518,7 @@ function editInventory(id) {
 	refs.inventoryItemInput.value = inventoryCombo.idToLabel.get(row.itemId) || "";
 	closeInventoryPopup();
 	refs.inventoryQty.value = String(row.quantity);
-	refs.inventoryExpiry.value = row.expiryDate;
+	refs.inventoryExpiry.value = dateStringToMonthInput(row.expiryDate);
 	refs.inventoryRemarks.value = REMARK_OPTIONS.includes(row.remarks) ? row.remarks : "";
 	refs.inventoryComment.value = row.comment || "";
 }
@@ -530,20 +536,25 @@ function stageInventoryInlineField(id, field, value, options = {}) {
 	if (!row) {
 		return;
 	}
+	const item = state.items.find((entry) => entry.id === row.itemId);
+	const basePulloutDate = resolvePulloutDate(row, item);
 	const hadDraft = state.inventoryDrafts.has(id);
 
 	const draft = state.inventoryDrafts.get(id) || {
+		pulloutDate: basePulloutDate,
 		remarks: row.remarks || "",
 		comment: row.comment || ""
 	};
 
 	draft[field] = value;
 
-	const hasChanges = (draft.remarks || "") !== (row.remarks || "")
+	const hasChanges = (draft.pulloutDate || "") !== basePulloutDate
+		|| (draft.remarks || "") !== (row.remarks || "")
 		|| (draft.comment || "") !== (row.comment || "");
 
 	if (hasChanges) {
 		state.inventoryDrafts.set(id, {
+			pulloutDate: draft.pulloutDate || "",
 			remarks: draft.remarks || "",
 			comment: draft.comment || ""
 		});
@@ -603,6 +614,7 @@ function saveInventoryInlineEdits(id) {
 		return;
 	}
 
+	row.pulloutDate = monthYearToMonthYearFormat(draft.pulloutDate);
 	row.remarks = draft.remarks || "";
 	row.comment = draft.comment || "";
 	state.inventoryDrafts.delete(id);
@@ -1143,7 +1155,7 @@ function exportAllCsv() {
 
 function buildInventoryCsvRow(entry, itemMap) {
 	const item = itemMap.get(entry.itemId);
-	const pulloutDate = calculatePulloutDate(entry.expiryDate || "", item);
+	const pulloutDate = resolvePulloutDate(entry, item);
 
 	return [
 			"inventory",
@@ -1177,7 +1189,7 @@ function collectDashboardEntries(searchTerm = "") {
 
 		const vendor = vendorMap.get(item.vendorId);
 		const vendorName = vendor ? vendor.name : "-";
-		const pulloutDate = calculatePulloutDate(row.expiryDate, item);
+		const pulloutDate = resolvePulloutDate(row, item);
 		const policyText = policyLabel(item);
 		const haystack = [
 			item.sku,
@@ -1296,6 +1308,7 @@ function importCsvText(text) {
 				itemId: (row[8] || "").trim(),
 				quantity: Number(row[9] || 0),
 				expiryDate: (row[10] || "").trim(),
+				pulloutDate: normalizeMonthYear((row[11] || "").trim()),
 				remarks: REMARK_OPTIONS.includes(row[12]) ? row[12] : "",
 				comment: row[13] || ""
 			}))
@@ -1326,6 +1339,7 @@ function importCsvText(text) {
 			itemId: (row[1] || "").trim(),
 			quantity: Number(row[2] || 0),
 			expiryDate: (row[3] || "").trim(),
+			pulloutDate: normalizeMonthYear((row[4] || "").trim()),
 			remarks: REMARK_OPTIONS.includes(row[5]) ? row[5] : "",
 			comment: row[6] || ""
 		})).filter((entry) => entry.itemId);
@@ -1463,11 +1477,156 @@ function calculatePulloutDate(expiryDate, item) {
 
 	const pulloutYear = pullout.getFullYear();
 	const pulloutMonth = String(pullout.getMonth() + 1).padStart(2, "0");
-	return `${pulloutMonth}/${pulloutYear}`;
+	const twoDigitYear = String(pulloutYear % 100).padStart(2, "0");
+	return `${pulloutMonth}/${twoDigitYear}`;
+}
+
+function resolvePulloutDate(row, item) {
+	const manual = normalizeMonthYear(row && row.pulloutDate);
+	if (manual) {
+		return manual;
+	}
+	return calculatePulloutDate(row && row.expiryDate, item);
+}
+
+function normalizeMonthYear(value) {
+	const raw = String(value || "").trim();
+	if (!raw) {
+		return "";
+	}
+
+	const [month, year] = raw.split("/");
+	const monthNumber = Number(month);
+	const yearNumber = Number(year);
+	if (!Number.isInteger(monthNumber) || !Number.isInteger(yearNumber) || monthNumber < 1 || monthNumber > 12) {
+		return "";
+	}
+
+	const twoDigitYear = yearNumber % 100;
+	return `${String(monthNumber).padStart(2, "0")}/${String(twoDigitYear).padStart(2, "0")}`;
+}
+
+function monthYearToDateString(value) {
+	const raw = String(value || "").trim();
+	if (!raw) {
+		return "";
+	}
+
+	const [month, year] = raw.split("/");
+	const monthNumber = Number(month);
+	const yearNumber = Number(year);
+	if (!Number.isInteger(monthNumber) || !Number.isInteger(yearNumber) || monthNumber < 1 || monthNumber > 12) {
+		return "";
+	}
+
+	const fullYear = yearNumber < 100 ? (yearNumber < 50 ? 2000 + yearNumber : 1900 + yearNumber) : yearNumber;
+	return `${fullYear}-${String(monthNumber).padStart(2, "0")}-01`;
+}
+
+function monthInputToDateString(value) {
+	const raw = String(value || "").trim();
+	if (!raw) {
+		return "";
+	}
+
+	const [year, month] = raw.split("-");
+	const yearNumber = Number(year);
+	const monthNumber = Number(month);
+	if (!Number.isInteger(yearNumber) || !Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) {
+		return "";
+	}
+
+	return `${yearNumber}-${String(monthNumber).padStart(2, "0")}-01`;
+}
+
+function dateStringToMonthInput(value) {
+	const raw = String(value || "").trim();
+	if (!raw) {
+		return "";
+	}
+
+	const parts = raw.split("-");
+	if (parts.length < 2) {
+		return "";
+	}
+
+	const year = Number(parts[0]);
+	const month = Number(parts[1]);
+	if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+		return "";
+	}
+
+	return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+function monthInputToMonthYear(value) {
+	const raw = String(value || "").trim();
+	if (!raw) {
+		return "";
+	}
+
+	const [year, month] = raw.split("-");
+	const yearNumber = Number(year);
+	const monthNumber = Number(month);
+	if (!Number.isInteger(yearNumber) || !Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) {
+		return "";
+	}
+
+	const twoDigitYear = String(yearNumber % 100).padStart(2, "0");
+	return `${String(monthNumber).padStart(2, "0")}/${twoDigitYear}`;
+}
+
+function monthYearToMonthInput(value) {
+	const raw = String(value || "").trim();
+	if (!raw) {
+		return "";
+	}
+
+	const [month, year] = raw.split("/");
+	const monthNumber = Number(month);
+	const yearNumber = Number(year);
+	if (!Number.isInteger(monthNumber) || !Number.isInteger(yearNumber) || monthNumber < 1 || monthNumber > 12) {
+		return "";
+	}
+
+	const fullYear = yearNumber < 100 ? (yearNumber < 50 ? 2000 + yearNumber : 1900 + yearNumber) : yearNumber;
+	return `${fullYear}-${String(monthNumber).padStart(2, "0")}`;
+}
+
+function monthYearToMonthYearFormat(value) {
+	const raw = String(value || "").trim();
+	if (!raw) {
+		return "";
+	}
+
+	const [month, year] = raw.split("/");
+	const monthNumber = Number(month);
+	const yearNumber = Number(year);
+	if (!Number.isInteger(monthNumber) || !Number.isInteger(yearNumber) || monthNumber < 1 || monthNumber > 12) {
+		return "";
+	}
+
+	const twoDigitYear = yearNumber % 100;
+	return `${String(monthNumber).padStart(2, "0")}/${String(twoDigitYear).padStart(2, "0")}`;
 }
 
 function formatMonthYear(value) {
-	return value || "-";
+	if (!value) {
+		return "-";
+	}
+
+	const [month, year] = String(value).split("/");
+	const monthNumber = Number(month);
+	if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) {
+		return value;
+	}
+
+	const yearNumber = Number(year);
+	if (!Number.isInteger(yearNumber)) {
+		return value;
+	}
+
+	return `${String(monthNumber).padStart(2, "0")}/${String(yearNumber % 100).padStart(2, "0")}`;
 }
 
 function getInventoryRowStatus(expiryDate, pulloutDate) {
@@ -1509,7 +1668,8 @@ function monthYearKey(monthYear) {
 		return "";
 	}
 
-	return `${yearNumber}-${String(monthNumber).padStart(2, "0")}`;
+	const fullYear = yearNumber < 100 ? (yearNumber < 50 ? 2000 + yearNumber : 1900 + yearNumber) : yearNumber;
+	return `${fullYear}-${String(monthNumber).padStart(2, "0")}`;
 }
 
 function formatDate(value) {
@@ -1522,7 +1682,9 @@ function formatDate(value) {
 		return value;
 	}
 
-	return date.toLocaleDateString();
+	const month = String(date.getMonth() + 1).padStart(2, "0");
+	const year = String(date.getFullYear() % 100).padStart(2, "0");
+	return `${month}/${year}`;
 }
 
 function escapeHtml(value) {
