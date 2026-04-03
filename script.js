@@ -9,12 +9,22 @@ const REMARK_OPTIONS = ["Yes, Intact", "Yes, Loose", "No, Loose"];
 const state = {
 	vendors: readStore(STORAGE_KEYS.vendors),
 	items: readStore(STORAGE_KEYS.items),
-	inventory: readStore(STORAGE_KEYS.inventory)
+	inventory: readStore(STORAGE_KEYS.inventory),
+	dashboardSearch: ""
 };
 
 const inventoryCombo = {
+	options: [],
 	labelToId: new Map(),
-	idToLabel: new Map()
+	idToLabel: new Map(),
+	highlightedIndex: -1
+};
+
+const itemVendorLookup = {
+	options: [],
+	labelToId: new Map(),
+	idToLabel: new Map(),
+	highlightedIndex: -1
 };
 
 const refs = {
@@ -43,6 +53,9 @@ const refs = {
 	itemId: document.getElementById("itemId"),
 	itemSku: document.getElementById("itemSku"),
 	itemDescription: document.getElementById("itemDescription"),
+	itemVendorWrap: document.getElementById("itemVendorWrap"),
+	itemVendorInput: document.getElementById("itemVendorInput"),
+	itemVendorPopup: document.getElementById("itemVendorPopup"),
 	itemVendor: document.getElementById("itemVendor"),
 	itemPolicyType: document.getElementById("itemPolicyType"),
 	itemPolicyMonths: document.getElementById("itemPolicyMonths"),
@@ -50,12 +63,15 @@ const refs = {
 	cancelItemBtn: document.getElementById("cancelItemBtn"),
 
 	newInventoryBtn: document.getElementById("newInventoryBtn"),
+	exportExcelBtn: document.getElementById("exportExcelBtn"),
+	dashboardSearchInput: document.getElementById("dashboardSearchInput"),
 	inventoryModal: document.getElementById("inventoryModal"),
 	inventoryForm: document.getElementById("inventoryForm"),
 	closeInventoryModalBtn: document.getElementById("closeInventoryModalBtn"),
 	inventoryId: document.getElementById("inventoryId"),
+	inventoryItemWrap: document.getElementById("inventoryItemWrap"),
 	inventoryItemInput: document.getElementById("inventoryItemInput"),
-	inventoryItemList: document.getElementById("inventoryItemList"),
+	inventoryItemPopup: document.getElementById("inventoryItemPopup"),
 	inventoryItem: document.getElementById("inventoryItem"),
 	inventoryQty: document.getElementById("inventoryQty"),
 	inventoryExpiry: document.getElementById("inventoryExpiry"),
@@ -63,6 +79,10 @@ const refs = {
 	inventoryRemarks: document.getElementById("inventoryRemarks"),
 	inventoryComment: document.getElementById("inventoryComment"),
 	cancelInventoryBtn: document.getElementById("cancelInventoryBtn"),
+	messageModal: document.getElementById("messageModal"),
+	messageModalText: document.getElementById("messageModalText"),
+	closeMessageModalBtn: document.getElementById("closeMessageModalBtn"),
+	okMessageModalBtn: document.getElementById("okMessageModalBtn"),
 	dashboardRows: document.getElementById("dashboardRows")
 };
 
@@ -79,6 +99,7 @@ function bindEvents() {
 	refs.menuBackdrop.addEventListener("click", closeMainMenu);
 	document.addEventListener("keydown", (event) => {
 		if (event.key === "Escape") {
+			closeMessageModal();
 			closeMainMenu();
 		}
 	});
@@ -99,6 +120,20 @@ function bindEvents() {
 	refs.cancelVendorBtn.addEventListener("click", resetVendorForm);
 
 	refs.itemForm.addEventListener("submit", onSaveItem);
+	refs.itemVendorInput.addEventListener("input", onItemVendorTyped);
+	refs.itemVendorInput.addEventListener("change", onItemVendorTyped);
+	refs.itemVendorInput.addEventListener("focus", () => {
+		renderItemVendorPopup(refs.itemVendorInput.value);
+	});
+	refs.itemVendorInput.addEventListener("keydown", onItemVendorKeydown);
+	refs.itemVendorPopup.addEventListener("mousedown", (event) => {
+		event.preventDefault();
+		const button = event.target.closest("button[data-id]");
+		if (!button) {
+			return;
+		}
+		selectItemVendorOption(button.dataset.id);
+	});
 	refs.itemPolicyType.addEventListener("change", syncPolicyField);
 	refs.cancelItemBtn.addEventListener("click", resetItemForm);
 
@@ -106,9 +141,34 @@ function bindEvents() {
 		resetInventoryForm();
 		openInventoryModal();
 	});
+	refs.dashboardSearchInput.addEventListener("input", () => {
+		state.dashboardSearch = refs.dashboardSearchInput.value.trim().toLowerCase();
+		renderDashboardRows();
+	});
+	refs.exportExcelBtn.addEventListener("click", exportDashboardExcel);
 	refs.inventoryForm.addEventListener("submit", onSaveInventory);
 	refs.inventoryItemInput.addEventListener("input", onInventoryItemTyped);
 	refs.inventoryItemInput.addEventListener("change", onInventoryItemTyped);
+	refs.inventoryItemInput.addEventListener("focus", () => {
+		renderInventoryPopup(refs.inventoryItemInput.value);
+	});
+	refs.inventoryItemInput.addEventListener("keydown", onInventoryItemKeydown);
+	refs.inventoryItemPopup.addEventListener("mousedown", (event) => {
+		event.preventDefault();
+		const button = event.target.closest("button[data-id]");
+		if (!button) {
+			return;
+		}
+		selectInventoryOption(button.dataset.id);
+	});
+	document.addEventListener("click", (event) => {
+		if (!refs.itemVendorWrap.contains(event.target)) {
+			closeItemVendorPopup();
+		}
+		if (!refs.inventoryItemWrap.contains(event.target)) {
+			closeInventoryPopup();
+		}
+	});
 	refs.cancelInventoryBtn.addEventListener("click", () => {
 		resetInventoryForm();
 		closeInventoryModal();
@@ -117,6 +177,13 @@ function bindEvents() {
 	refs.inventoryModal.addEventListener("click", (event) => {
 		if (event.target === refs.inventoryModal) {
 			closeInventoryModal();
+		}
+	});
+	refs.closeMessageModalBtn.addEventListener("click", closeMessageModal);
+	refs.okMessageModalBtn.addEventListener("click", closeMessageModal);
+	refs.messageModal.addEventListener("click", (event) => {
+		if (event.target === refs.messageModal) {
+			closeMessageModal();
 		}
 	});
 
@@ -225,7 +292,24 @@ function onSaveItem(event) {
 		? Number(refs.itemPolicyMonths.value || 0)
 		: 0;
 
-	if (!sku || !description || !vendorId) {
+	if (!sku || !description) {
+		return;
+	}
+
+	if (!vendorId || !state.vendors.some((entry) => entry.id === vendorId)) {
+		showIssueModal("Please select a valid vendor from the pop-up list.");
+		return;
+	}
+
+	if (returnPolicyType === "months_before_expiry" && returnPolicyMonths <= 0) {
+		showIssueModal("Months before expiry must be greater than 0.");
+		return;
+	}
+
+	const normalizedSku = sku.toLowerCase();
+	const skuTaken = state.items.some((item) => item.id !== id && item.sku.trim().toLowerCase() === normalizedSku);
+	if (skuTaken) {
+		showIssueModal("SKU already exists. Please use a unique SKU.");
 		return;
 	}
 
@@ -253,6 +337,8 @@ function editItem(id) {
 	refs.itemSku.value = item.sku;
 	refs.itemDescription.value = item.description;
 	refs.itemVendor.value = item.vendorId;
+	refs.itemVendorInput.value = itemVendorLookup.idToLabel.get(item.vendorId) || "";
+	closeItemVendorPopup();
 	refs.itemPolicyType.value = item.returnPolicyType;
 	refs.itemPolicyMonths.value = String(item.returnPolicyMonths || 0);
 	syncPolicyField();
@@ -273,6 +359,9 @@ function deleteItem(id) {
 function resetItemForm() {
 	refs.itemForm.reset();
 	refs.itemId.value = "";
+	refs.itemVendor.value = "";
+	refs.itemVendorInput.value = "";
+	closeItemVendorPopup();
 	syncPolicyField();
 }
 
@@ -285,7 +374,7 @@ function onSaveInventory(event) {
 	event.preventDefault();
 
 	if (!state.items.length) {
-		window.alert("Add at least one item before creating inventory rows.");
+		showIssueModal("Add at least one item before creating inventory rows.");
 		return;
 	}
 
@@ -301,7 +390,12 @@ function onSaveInventory(event) {
 	};
 
 	if (!payload.itemId || !state.items.some((entry) => entry.id === payload.itemId)) {
-		window.alert("Please select a valid item from the combo box.");
+		showIssueModal("Please select a valid item from the pop-up list.");
+		return;
+	}
+
+	if (payload.quantity <= 0) {
+		showIssueModal("Quantity must be greater than 0.");
 		return;
 	}
 
@@ -329,10 +423,11 @@ function editInventory(id) {
 	refs.inventoryId.value = row.id;
 	refs.inventoryItem.value = row.itemId;
 	refs.inventoryItemInput.value = inventoryCombo.idToLabel.get(row.itemId) || "";
+	closeInventoryPopup();
 	refs.inventoryQty.value = String(row.quantity);
 	refs.inventoryExpiry.value = row.expiryDate;
 	refs.inventoryPullout.value = row.pulloutDate || "";
-	refs.inventoryRemarks.value = REMARK_OPTIONS.includes(row.remarks) ? row.remarks : "Yes, Intact";
+	refs.inventoryRemarks.value = REMARK_OPTIONS.includes(row.remarks) ? row.remarks : "";
 	refs.inventoryComment.value = row.comment || "";
 }
 
@@ -342,12 +437,23 @@ function deleteInventory(id) {
 	renderDashboardRows();
 }
 
+function updateInventoryInlineField(id, field, value) {
+	const row = state.inventory.find((entry) => entry.id === id);
+	if (!row) {
+		return;
+	}
+
+	row[field] = value;
+	persist("inventory");
+}
+
 function resetInventoryForm() {
 	refs.inventoryForm.reset();
 	refs.inventoryId.value = "";
 	refs.inventoryItem.value = "";
 	refs.inventoryItemInput.value = "";
-	refs.inventoryRemarks.value = "Yes, Intact";
+	closeInventoryPopup();
+	refs.inventoryRemarks.value = "";
 }
 
 function renderVendorRows() {
@@ -410,6 +516,8 @@ function renderItemRows() {
 
 function renderDashboardRows() {
 	refs.dashboardRows.innerHTML = "";
+	const searchTerm = state.dashboardSearch;
+	let visibleRowCount = 0;
 
 	for (const row of state.inventory) {
 		const item = state.items.find((entry) => entry.id === row.itemId);
@@ -417,22 +525,74 @@ function renderDashboardRows() {
 			continue;
 		}
 		const vendor = state.vendors.find((entry) => entry.id === item.vendorId);
+		const policyText = policyLabel(item);
+		const haystack = [
+			item.sku,
+			item.description,
+			vendor ? vendor.name : "",
+			String(row.quantity ?? ""),
+			row.expiryDate || "",
+			policyText,
+			row.pulloutDate || "",
+			row.remarks || "",
+			row.comment || ""
+		].join(" ").toLowerCase();
+
+		if (searchTerm && !haystack.includes(searchTerm)) {
+			continue;
+		}
+
+		visibleRowCount += 1;
 
 		const tr = document.createElement("tr");
+		const policyParts = policyLines(item);
 		tr.innerHTML = `
 			<td>${escapeHtml(item.sku)}</td>
-			<td>${escapeHtml(item.description)} (${escapeHtml(vendor ? vendor.name : "-")})</td>
+			<td>
+				<div class="item-summary">
+					<div class="item-summary-main">${escapeHtml(item.description)}</div>
+					<div class="item-summary-sub">${escapeHtml(vendor ? vendor.name : "-")}</div>
+				</div>
+			</td>
 			<td>${row.quantity}</td>
 			<td>${formatDate(row.expiryDate)}</td>
-			<td>${escapeHtml(policyLabel(item))}</td>
+			<td>
+				<div class="policy-summary">
+					<div class="policy-summary-main">${escapeHtml(policyParts[0])}</div>
+					<div class="policy-summary-sub">${escapeHtml(policyParts[1])}</div>
+				</div>
+			</td>
 			<td>${formatDate(row.pulloutDate)}</td>
-			<td>${escapeHtml(row.remarks || "")}</td>
-			<td>${escapeHtml(row.comment || "")}</td>
+			<td>
+				<select class="dashboard-inline-select" data-inline-field="remarks" data-id="${row.id}" aria-label="Edit remarks">
+					<option value="" ${row.remarks ? "" : "selected"}></option>
+					<option value="Yes, Intact" ${row.remarks === "Yes, Intact" ? "selected" : ""}>Yes, Intact</option>
+					<option value="Yes, Loose" ${row.remarks === "Yes, Loose" ? "selected" : ""}>Yes, Loose</option>
+					<option value="No, Loose" ${row.remarks === "No, Loose" ? "selected" : ""}>No, Loose</option>
+				</select>
+			</td>
+			<td>
+				<textarea class="dashboard-inline-comment" data-inline-field="comment" data-id="${row.id}" rows="1">${escapeHtml(row.comment || "")}</textarea>
+			</td>
 			<td class="actions">
-				<button type="button" data-action="edit-inventory" data-id="${row.id}">Edit</button>
-				<button type="button" data-action="delete-inventory" data-id="${row.id}" class="danger">Delete</button>
+				<button type="button" data-action="edit-inventory" data-id="${row.id}" class="icon-btn" aria-label="Edit inventory row" title="Edit">
+					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+						<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.96 1.96 3.75 3.75 2.13-1.79Z"/>
+					</svg>
+				</button>
+				<button type="button" data-action="delete-inventory" data-id="${row.id}" class="icon-btn danger" aria-label="Delete inventory row" title="Delete">
+					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+						<path d="M9 3h6l1 2h5v2H3V5h5l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM6 9h2v9H6V9Zm1 12a2 2 0 0 1-2-2V8h14v11a2 2 0 0 1-2 2H7Z"/>
+					</svg>
+				</button>
 			</td>
 		`;
+		refs.dashboardRows.appendChild(tr);
+	}
+
+	if (!visibleRowCount) {
+		const tr = document.createElement("tr");
+		tr.innerHTML = `<td colspan="9" class="empty-state-cell">No matching dashboard rows.</td>`;
 		refs.dashboardRows.appendChild(tr);
 	}
 
@@ -446,43 +606,179 @@ function renderDashboardRows() {
 			}
 		});
 	});
+
+	refs.dashboardRows.querySelectorAll("select[data-inline-field='remarks']").forEach((select) => {
+		select.addEventListener("change", () => {
+			updateInventoryInlineField(select.dataset.id, "remarks", select.value);
+		});
+	});
+
+	refs.dashboardRows.querySelectorAll("textarea[data-inline-field='comment']").forEach((textarea) => {
+		textarea.addEventListener("change", () => {
+			updateInventoryInlineField(textarea.dataset.id, "comment", textarea.value.trim());
+		});
+		textarea.addEventListener("blur", () => {
+			updateInventoryInlineField(textarea.dataset.id, "comment", textarea.value.trim());
+		});
+	});
 }
 
 function renderItemVendorOptions() {
 	const previous = refs.itemVendor.value;
-	refs.itemVendor.innerHTML = "";
+	itemVendorLookup.options = [];
+	itemVendorLookup.labelToId.clear();
+	itemVendorLookup.idToLabel.clear();
+	itemVendorLookup.highlightedIndex = -1;
+	refs.itemVendorPopup.innerHTML = "";
 
 	if (!state.vendors.length) {
-		refs.itemVendor.innerHTML = "<option value=''>Add a vendor first</option>";
-		refs.itemVendor.disabled = true;
+		refs.itemVendorInput.value = "";
+		refs.itemVendorInput.placeholder = "Add a vendor first";
+		refs.itemVendorInput.disabled = true;
+		refs.itemVendor.value = "";
+		closeItemVendorPopup();
 		return;
 	}
 
-	refs.itemVendor.disabled = false;
-	refs.itemVendor.innerHTML = "<option value=''>Select vendor</option>";
+	refs.itemVendorInput.disabled = false;
+	refs.itemVendorInput.placeholder = "Type vendor name";
 	for (const vendor of state.vendors) {
-		const option = document.createElement("option");
-		option.value = vendor.id;
-		option.textContent = vendor.name;
-		refs.itemVendor.appendChild(option);
+		const label = vendor.name;
+		itemVendorLookup.options.push({ id: vendor.id, label, lower: label.toLowerCase() });
+		itemVendorLookup.labelToId.set(label.toLowerCase(), vendor.id);
+		itemVendorLookup.idToLabel.set(vendor.id, label);
 	}
 
 	refs.itemVendor.value = previous && state.vendors.some((entry) => entry.id === previous)
 		? previous
 		: "";
+	refs.itemVendorInput.value = refs.itemVendor.value
+		? itemVendorLookup.idToLabel.get(refs.itemVendor.value) || ""
+		: "";
+	closeItemVendorPopup();
+}
+
+function onItemVendorTyped() {
+	const label = refs.itemVendorInput.value.trim().toLowerCase();
+	refs.itemVendor.value = itemVendorLookup.labelToId.get(label) || "";
+	renderItemVendorPopup(refs.itemVendorInput.value);
+}
+
+function onItemVendorKeydown(event) {
+	if (refs.itemVendorPopup.hidden) {
+		if (event.key === "ArrowDown" && refs.itemVendorInput.value.trim()) {
+			renderItemVendorPopup(refs.itemVendorInput.value);
+		}
+		return;
+	}
+
+	const visibleButtons = refs.itemVendorPopup.querySelectorAll("button[data-id]");
+	if (!visibleButtons.length) {
+		if (event.key === "Escape") {
+			closeItemVendorPopup();
+		}
+		return;
+	}
+
+	if (event.key === "ArrowDown") {
+		event.preventDefault();
+		itemVendorLookup.highlightedIndex = Math.min(itemVendorLookup.highlightedIndex + 1, visibleButtons.length - 1);
+		updateItemVendorPopupHighlight();
+		return;
+	}
+
+	if (event.key === "ArrowUp") {
+		event.preventDefault();
+		itemVendorLookup.highlightedIndex = Math.max(itemVendorLookup.highlightedIndex - 1, 0);
+		updateItemVendorPopupHighlight();
+		return;
+	}
+
+	if (event.key === "Enter") {
+		event.preventDefault();
+		const button = visibleButtons[itemVendorLookup.highlightedIndex] || visibleButtons[0];
+		if (button) {
+			selectItemVendorOption(button.dataset.id);
+		}
+		return;
+	}
+
+	if (event.key === "Escape") {
+		event.preventDefault();
+		closeItemVendorPopup();
+	}
+}
+
+function renderItemVendorPopup(rawQuery) {
+	if (refs.itemVendorInput.disabled) {
+		closeItemVendorPopup();
+		return;
+	}
+
+	const query = rawQuery.trim().toLowerCase();
+	if (!query) {
+		closeItemVendorPopup();
+		return;
+	}
+
+	const matches = itemVendorLookup.options
+		.filter((option) => option.lower.includes(query))
+		.slice(0, 8);
+
+	refs.itemVendorPopup.innerHTML = "";
+	if (!matches.length) {
+		closeItemVendorPopup();
+		return;
+	}
+
+	for (const match of matches) {
+		const li = document.createElement("li");
+		const button = document.createElement("button");
+		button.type = "button";
+		button.dataset.id = match.id;
+		button.textContent = match.label;
+		li.appendChild(button);
+		refs.itemVendorPopup.appendChild(li);
+	}
+
+	itemVendorLookup.highlightedIndex = 0;
+	refs.itemVendorPopup.hidden = false;
+	updateItemVendorPopupHighlight();
+}
+
+function updateItemVendorPopupHighlight() {
+	const visibleButtons = refs.itemVendorPopup.querySelectorAll("button[data-id]");
+	visibleButtons.forEach((button, index) => {
+		button.classList.toggle("active", index === itemVendorLookup.highlightedIndex);
+	});
+}
+
+function selectItemVendorOption(id) {
+	refs.itemVendor.value = id;
+	refs.itemVendorInput.value = itemVendorLookup.idToLabel.get(id) || "";
+	closeItemVendorPopup();
+}
+
+function closeItemVendorPopup() {
+	refs.itemVendorPopup.hidden = true;
+	refs.itemVendorPopup.innerHTML = "";
+	itemVendorLookup.highlightedIndex = -1;
 }
 
 function renderInventoryItemOptions() {
 	const previous = refs.inventoryItem.value;
+	inventoryCombo.options = [];
 	inventoryCombo.labelToId.clear();
 	inventoryCombo.idToLabel.clear();
-	refs.inventoryItemList.innerHTML = "";
+	refs.inventoryItemPopup.innerHTML = "";
+	inventoryCombo.highlightedIndex = -1;
 
 	if (!state.items.length) {
 		refs.inventoryItemInput.value = "";
 		refs.inventoryItemInput.placeholder = "Add an item first";
 		refs.inventoryItemInput.disabled = true;
 		refs.inventoryItem.value = "";
+		closeInventoryPopup();
 		refs.newInventoryBtn.disabled = true;
 		closeInventoryModal();
 		return;
@@ -493,10 +789,8 @@ function renderInventoryItemOptions() {
 	refs.newInventoryBtn.disabled = false;
 	for (const item of state.items) {
 		const vendor = state.vendors.find((entry) => entry.id === item.vendorId);
-		const option = document.createElement("option");
 		const label = `${item.sku} - ${item.description} (${vendor ? vendor.name : "No vendor"})`;
-		option.value = label;
-		refs.inventoryItemList.appendChild(option);
+		inventoryCombo.options.push({ id: item.id, label, lower: label.toLowerCase() });
 		inventoryCombo.labelToId.set(label.toLowerCase(), item.id);
 		inventoryCombo.idToLabel.set(item.id, label);
 	}
@@ -507,11 +801,114 @@ function renderInventoryItemOptions() {
 	refs.inventoryItemInput.value = refs.inventoryItem.value
 		? inventoryCombo.idToLabel.get(refs.inventoryItem.value) || ""
 		: "";
+	closeInventoryPopup();
 }
 
 function onInventoryItemTyped() {
 	const label = refs.inventoryItemInput.value.trim().toLowerCase();
 	refs.inventoryItem.value = inventoryCombo.labelToId.get(label) || "";
+	renderInventoryPopup(refs.inventoryItemInput.value);
+}
+
+function onInventoryItemKeydown(event) {
+	if (refs.inventoryItemPopup.hidden) {
+		if (event.key === "ArrowDown" && refs.inventoryItemInput.value.trim()) {
+			renderInventoryPopup(refs.inventoryItemInput.value);
+		}
+		return;
+	}
+
+	const visibleButtons = refs.inventoryItemPopup.querySelectorAll("button[data-id]");
+	if (!visibleButtons.length) {
+		if (event.key === "Escape") {
+			closeInventoryPopup();
+		}
+		return;
+	}
+
+	if (event.key === "ArrowDown") {
+		event.preventDefault();
+		inventoryCombo.highlightedIndex = Math.min(inventoryCombo.highlightedIndex + 1, visibleButtons.length - 1);
+		updateInventoryPopupHighlight();
+		return;
+	}
+
+	if (event.key === "ArrowUp") {
+		event.preventDefault();
+		inventoryCombo.highlightedIndex = Math.max(inventoryCombo.highlightedIndex - 1, 0);
+		updateInventoryPopupHighlight();
+		return;
+	}
+
+	if (event.key === "Enter") {
+		event.preventDefault();
+		const button = visibleButtons[inventoryCombo.highlightedIndex] || visibleButtons[0];
+		if (button) {
+			selectInventoryOption(button.dataset.id);
+		}
+		return;
+	}
+
+	if (event.key === "Escape") {
+		event.preventDefault();
+		closeInventoryPopup();
+	}
+}
+
+function renderInventoryPopup(rawQuery) {
+	if (refs.inventoryItemInput.disabled) {
+		closeInventoryPopup();
+		return;
+	}
+
+	const query = rawQuery.trim().toLowerCase();
+	if (!query) {
+		closeInventoryPopup();
+		return;
+	}
+
+	const matches = inventoryCombo.options
+		.filter((option) => option.lower.includes(query))
+		.slice(0, 8);
+
+	refs.inventoryItemPopup.innerHTML = "";
+	if (!matches.length) {
+		closeInventoryPopup();
+		return;
+	}
+
+	for (const match of matches) {
+		const li = document.createElement("li");
+		const button = document.createElement("button");
+		button.type = "button";
+		button.dataset.id = match.id;
+		button.textContent = match.label;
+		li.appendChild(button);
+		refs.inventoryItemPopup.appendChild(li);
+	}
+
+	inventoryCombo.highlightedIndex = 0;
+	refs.inventoryItemPopup.hidden = false;
+	updateInventoryPopupHighlight();
+}
+
+function updateInventoryPopupHighlight() {
+	const visibleButtons = refs.inventoryItemPopup.querySelectorAll("button[data-id]");
+	visibleButtons.forEach((button, index) => {
+		button.classList.toggle("active", index === inventoryCombo.highlightedIndex);
+	});
+}
+
+function selectInventoryOption(id) {
+	refs.inventoryItem.value = id;
+	refs.inventoryItemInput.value = inventoryCombo.idToLabel.get(id) || "";
+	closeInventoryPopup();
+}
+
+function closeInventoryPopup() {
+	refs.inventoryItemPopup.hidden = true;
+	refs.inventoryItemPopup.innerHTML = "";
+	inventoryCombo.highlightedIndex = -1;
 }
 
 function openInventoryModal() {
@@ -524,27 +921,154 @@ function closeInventoryModal() {
 	document.body.classList.remove("modal-open");
 }
 
-function exportAllCsv() {
-	downloadCsv("vendors.csv", ["id", "name"], state.vendors.map((entry) => [entry.id, entry.name]));
+function showIssueModal(message) {
+	refs.messageModalText.textContent = message;
+	refs.messageModal.hidden = false;
+	document.body.classList.add("modal-open");
+}
 
-	downloadCsv(
-		"items.csv",
-		["id", "sku", "description", "vendor_id", "return_policy_type", "return_policy_months"],
-		state.items.map((entry) => [
+function closeMessageModal() {
+	refs.messageModal.hidden = true;
+	if (refs.inventoryModal.hidden) {
+		document.body.classList.remove("modal-open");
+	}
+}
+
+function exportDashboardExcel() {
+	const searchTerm = state.dashboardSearch;
+
+	const header = [
+		"SKU#",
+		"Description",
+		"Vendor",
+		"Qty",
+		"Expiry Date",
+		"Return Policy",
+		"Pull-out Date",
+		"Remarks",
+		"Comment"
+	];
+
+	const dataRows = [];
+
+	for (const row of state.inventory) {
+		const item = state.items.find((entry) => entry.id === row.itemId);
+		if (!item) {
+			continue;
+		}
+		const vendor = state.vendors.find((entry) => entry.id === item.vendorId);
+		const vendorName = vendor ? vendor.name : "-";
+		const policy = policyLabel(item);
+
+		if (searchTerm) {
+			const haystack = [
+				item.sku,
+				item.description,
+				vendorName,
+				String(row.quantity ?? ""),
+				row.expiryDate || "",
+				policy,
+				row.pulloutDate || "",
+				row.remarks || "",
+				row.comment || ""
+			].join(" ").toLowerCase();
+
+			if (!haystack.includes(searchTerm)) {
+				continue;
+			}
+		}
+
+		dataRows.push([
+			item.sku,
+			item.description,
+			vendorName,
+			row.quantity ?? 0,
+			row.expiryDate || "",
+			policy,
+			row.pulloutDate || "",
+			row.remarks || "",
+			row.comment || ""
+		]);
+	}
+
+	const wsData = [header, ...dataRows];
+	const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+	const colWidths = header.map((_, colIdx) => ({
+		wpx: Math.max(
+			header[colIdx].length * 9,
+			...dataRows.map((r) => String(r[colIdx] ?? "").length * 8)
+		)
+	}));
+	ws["!cols"] = colWidths;
+
+	const wb = XLSX.utils.book_new();
+	XLSX.utils.book_append_sheet(wb, ws, "Dashboard");
+
+	const timestamp = new Date().toISOString().slice(0, 10);
+	XLSX.writeFile(wb, `joanni_pharma_dashboard_${timestamp}.xlsx`);
+}
+
+function exportAllCsv() {
+	const header = [
+		"record_type",
+		"id",
+		"name",
+		"sku",
+		"description",
+		"vendor_id",
+		"return_policy_type",
+		"return_policy_months",
+		"item_id",
+		"quantity",
+		"expiry_date",
+		"pullout_date",
+		"remarks",
+		"comment"
+	];
+
+	const rows = [
+		...state.vendors.map((entry) => [
+			"vendor",
 			entry.id,
+			entry.name,
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			""
+		]),
+		...state.items.map((entry) => [
+			"item",
+			entry.id,
+			"",
 			entry.sku,
 			entry.description,
 			entry.vendorId,
 			entry.returnPolicyType,
-			String(entry.returnPolicyMonths || 0)
-		])
-	);
-
-	downloadCsv(
-		"inventory.csv",
-		["id", "item_id", "quantity", "expiry_date", "pullout_date", "remarks", "comment"],
-		state.inventory.map((entry) => [
+			String(entry.returnPolicyMonths || 0),
+			"",
+			"",
+			"",
+			"",
+			"",
+			""
+		]),
+		...state.inventory.map((entry) => [
+			"inventory",
 			entry.id,
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
 			entry.itemId,
 			String(entry.quantity || 0),
 			entry.expiryDate || "",
@@ -552,7 +1076,9 @@ function exportAllCsv() {
 			entry.remarks || "",
 			entry.comment || ""
 		])
-	);
+	];
+
+	downloadCsv("joanni_pharma_export.csv", header, rows);
 }
 
 function onImportCsv(event) {
@@ -595,6 +1121,61 @@ function importCsvText(text) {
 		return;
 	}
 
+	if (matchesHeader(header, [
+		"record_type",
+		"id",
+		"name",
+		"sku",
+		"description",
+		"vendor_id",
+		"return_policy_type",
+		"return_policy_months",
+		"item_id",
+		"quantity",
+		"expiry_date",
+		"pullout_date",
+		"remarks",
+		"comment"
+	])) {
+		state.vendors = dataRows
+			.filter((row) => (row[0] || "").trim().toLowerCase() === "vendor")
+			.map((row) => ({
+				id: row[1] || uid(),
+				name: (row[2] || "").trim()
+			}))
+			.filter((entry) => entry.name);
+
+		state.items = dataRows
+			.filter((row) => (row[0] || "").trim().toLowerCase() === "item")
+			.map((row) => ({
+				id: row[1] || uid(),
+				sku: (row[3] || "").trim(),
+				description: (row[4] || "").trim(),
+				vendorId: (row[5] || "").trim(),
+				returnPolicyType: row[6] === "expiry_month" ? "expiry_month" : "months_before_expiry",
+				returnPolicyMonths: Number(row[7] || 0)
+			}))
+			.filter((entry) => entry.sku && entry.description);
+
+		state.inventory = dataRows
+			.filter((row) => (row[0] || "").trim().toLowerCase() === "inventory")
+			.map((row) => ({
+				id: row[1] || uid(),
+				itemId: (row[8] || "").trim(),
+				quantity: Number(row[9] || 0),
+				expiryDate: (row[10] || "").trim(),
+				pulloutDate: (row[11] || "").trim(),
+				remarks: REMARK_OPTIONS.includes(row[12]) ? row[12] : "",
+				comment: row[13] || ""
+			}))
+			.filter((entry) => entry.itemId);
+
+		persist("vendors");
+		persist("items");
+		persist("inventory");
+		return;
+	}
+
 	if (matchesHeader(header, ["id", "sku", "description", "vendor_id", "return_policy_type", "return_policy_months"])) {
 		state.items = dataRows.map((row) => ({
 			id: row[0] || uid(),
@@ -615,7 +1196,7 @@ function importCsvText(text) {
 			quantity: Number(row[2] || 0),
 			expiryDate: (row[3] || "").trim(),
 			pulloutDate: (row[4] || "").trim(),
-			remarks: REMARK_OPTIONS.includes(row[5]) ? row[5] : "Yes, Intact",
+			remarks: REMARK_OPTIONS.includes(row[5]) ? row[5] : "",
 			comment: row[6] || ""
 		})).filter((entry) => entry.itemId);
 		persist("inventory");
@@ -716,6 +1297,13 @@ function policyLabel(item) {
 		return "On the month of expiry";
 	}
 	return `${item.returnPolicyMonths || 0} month(s) before expiry`;
+}
+
+function policyLines(item) {
+	if (item.returnPolicyType === "expiry_month") {
+		return ["On the month", "of expiry"];
+	}
+	return [`${item.returnPolicyMonths || 0} month(s)`, "before expiry"];
 }
 
 function formatDate(value) {

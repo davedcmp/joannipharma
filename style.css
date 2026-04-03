@@ -180,6 +180,36 @@ summary::-webkit-details-marker {
 	margin-bottom: 0.75rem;
 }
 
+.dashboard-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: end;
+	justify-content: space-between;
+	gap: 0.75rem;
+	padding: 0.75rem 1rem;
+	margin-bottom: 0.75rem;
+}
+
+.dashboard-search {
+	display: grid;
+	gap: 0.35rem;
+	flex: 1 1 320px;
+	max-width: 420px;
+	color: #5c4040;
+	font-size: 0.86rem;
+}
+
+.dashboard-search input {
+	width: 100%;
+}
+
+.toolbar-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: end;
+}
+
 .card {
 	background: var(--panel);
 	border: 1px solid var(--line);
@@ -202,10 +232,26 @@ summary::-webkit-details-marker {
 	place-items: center;
 	padding: 1rem;
 	z-index: 1000;
+	animation: modalBackdropIn 160ms ease-out;
 }
 
 .modal-overlay[hidden] {
 	display: none;
+}
+
+.message-modal {
+	z-index: 1300;
+}
+
+.message-modal-card {
+	width: min(460px, 100%);
+	margin-bottom: 0;
+	animation: modalZoomIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.message-modal-text {
+	margin: 0.2rem 0 0;
+	color: #4e3535;
 }
 
 .modal-form {
@@ -213,6 +259,35 @@ summary::-webkit-details-marker {
 	margin-bottom: 0;
 	max-height: calc(100vh - 2rem);
 	overflow: auto;
+	animation: modalZoomIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalZoomIn {
+	from {
+		opacity: 0;
+		transform: scale(0.92);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+@keyframes modalBackdropIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.modal-overlay,
+	.modal-form,
+	.message-modal-card {
+		animation: none;
+	}
 }
 
 .modal-head {
@@ -224,6 +299,52 @@ summary::-webkit-details-marker {
 
 .modal-close {
 	padding: 0.4rem 0.7rem;
+}
+
+.autocomplete-wrap {
+	position: relative;
+	width: 100%;
+}
+
+.autocomplete-wrap input {
+	width: 100%;
+	display: block;
+}
+
+.autocomplete-popup {
+	position: absolute;
+	top: calc(100% + 4px);
+	left: 0;
+	right: 0;
+	margin: 0;
+	padding: 0.2rem;
+	list-style: none;
+	background: #fff;
+	border: 1px solid #d9bcbc;
+	border-radius: 10px;
+	box-shadow: 0 8px 24px rgba(94, 35, 35, 0.16);
+	max-height: 180px;
+	overflow: auto;
+	z-index: 2;
+}
+
+.autocomplete-popup li {
+	margin: 0;
+}
+
+.autocomplete-popup button {
+	width: 100%;
+	text-align: left;
+	border: 0;
+	background: transparent;
+	padding: 0.46rem 0.5rem;
+	border-radius: 8px;
+	color: #3a2727;
+}
+
+.autocomplete-popup button:hover,
+.autocomplete-popup button.active {
+	background: #ffe9e9;
 }
 
 body.modal-open {
@@ -305,6 +426,12 @@ td {
 	font-size: 0.9rem;
 }
 
+.empty-state-cell {
+	text-align: center;
+	color: var(--muted);
+	padding: 1rem;
+}
+
 th {
 	white-space: nowrap;
 	position: sticky;
@@ -313,8 +440,42 @@ th {
 	z-index: 1;
 }
 
+.item-summary {
+	line-height: 1.2;
+}
+
+.item-summary-main {
+	font-weight: 500;
+}
+
+.item-summary-sub {
+	margin-top: 0.15rem;
+	color: var(--muted);
+	font-size: 0.85em;
+}
+
+.policy-summary {
+	line-height: 1.2;
+}
+
+.policy-summary-main {
+	font-weight: 500;
+}
+
+.policy-summary-sub {
+	margin-top: 0.15rem;
+	color: var(--muted);
+	font-size: 0.85em;
+}
+
 .actions {
 	white-space: nowrap;
+}
+
+.maintenance-table .actions-header,
+.maintenance-table .actions {
+	text-align: center;
+	width: 120px;
 }
 
 .actions button {
@@ -327,6 +488,46 @@ th {
 	padding: 0.16rem 0.36rem;
 	font-size: 0.72rem;
 	min-height: 24px;
+}
+
+#dashboardRows .actions .icon-btn {
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	display: inline-grid;
+	place-items: center;
+	border-radius: 8px;
+}
+
+#dashboardRows .actions .icon-btn svg {
+	width: 14px;
+	height: 14px;
+	fill: currentColor;
+}
+
+.dashboard-inline-select,
+.dashboard-inline-comment {
+	width: 100%;
+	min-width: 0;
+	font-size: 0.78rem;
+	padding: 0.35rem 0.45rem;
+	border-radius: 8px;
+}
+
+.dashboard-inline-select {
+	min-width: 110px;
+	height: 31px;
+	min-height: 31px;
+	line-height: 1.2;
+}
+
+.dashboard-inline-comment {
+	min-width: 140px;
+	height: 31px;
+	min-height: 31px;
+	resize: none;
+	line-height: 1.2;
+	overflow: hidden;
 }
 
 .danger {

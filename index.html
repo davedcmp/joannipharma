@@ -49,7 +49,17 @@
 			<section id="dashboardSection" class="content-section">
 				<div class="section-header">
 					<h2>Dashboard</h2>
-					<button id="newInventoryBtn" class="primary-btn" type="button">Add Inventory Row</button>
+				</div>
+
+				<div class="dashboard-toolbar card">
+					<label class="dashboard-search" for="dashboardSearchInput">
+						<span>Search</span>
+						<input id="dashboardSearchInput" type="text" placeholder="Search SKU, description, vendor, remarks, comment" autocomplete="off">
+					</label>
+					<div class="toolbar-actions">
+						<button id="exportExcelBtn" class="ghost-btn" type="button">Export to Excel</button>
+						<button id="newInventoryBtn" class="primary-btn" type="button">Add Inventory Row</button>
+					</div>
 				</div>
 
 				<div class="table-wrap card">
@@ -78,12 +88,12 @@
 					<button id="closeVendorSectionBtn" class="ghost-btn" type="button">Close</button>
 				</div>
 
-				<form id="vendorForm" class="card form-card">
+				<form id="vendorForm" class="card form-card" autocomplete="off">
 					<h3>Add / Edit Vendor</h3>
 					<input id="vendorId" type="hidden">
 
 					<label for="vendorName">Name</label>
-					<input id="vendorName" type="text" maxlength="80" required>
+					<input id="vendorName" type="text" maxlength="80" autocomplete="off" required>
 
 					<div class="form-actions">
 						<button type="submit" class="primary-btn">Save Vendor</button>
@@ -92,11 +102,11 @@
 				</form>
 
 				<div class="table-wrap card">
-					<table>
+					<table class="maintenance-table">
 						<thead>
 							<tr>
 								<th>Name</th>
-								<th>Actions</th>
+								<th class="actions-header">Actions</th>
 							</tr>
 						</thead>
 						<tbody id="vendorRows"></tbody>
@@ -110,18 +120,22 @@
 					<button id="closeItemSectionBtn" class="ghost-btn" type="button">Close</button>
 				</div>
 
-				<form id="itemForm" class="card form-card">
+				<form id="itemForm" class="card form-card" autocomplete="off">
 					<h3>Add / Edit Item</h3>
 					<input id="itemId" type="hidden">
 
 					<label for="itemSku">SKU#</label>
-					<input id="itemSku" type="text" maxlength="40" required>
+					<input id="itemSku" type="text" maxlength="40" autocomplete="off" required>
 
 					<label for="itemDescription">Description</label>
-					<input id="itemDescription" type="text" maxlength="150" required>
+					<input id="itemDescription" type="text" maxlength="150" autocomplete="off" required>
 
-					<label for="itemVendor">Vendor</label>
-					<select id="itemVendor" required></select>
+					<label for="itemVendorInput">Vendor</label>
+					<div id="itemVendorWrap" class="autocomplete-wrap">
+						<input id="itemVendorInput" type="text" placeholder="Type vendor name" autocomplete="off" required>
+						<ul id="itemVendorPopup" class="autocomplete-popup" hidden></ul>
+					</div>
+					<input id="itemVendor" type="hidden" required>
 
 					<label for="itemPolicyType">Return Policy</label>
 					<select id="itemPolicyType" required>
@@ -139,14 +153,14 @@
 				</form>
 
 				<div class="table-wrap card">
-					<table>
+					<table class="maintenance-table">
 						<thead>
 							<tr>
 								<th>SKU#</th>
 								<th>Description</th>
 								<th>Vendor</th>
 								<th>Return Policy</th>
-								<th>Actions</th>
+								<th class="actions-header">Actions</th>
 							</tr>
 						</thead>
 						<tbody id="itemRows"></tbody>
@@ -157,7 +171,7 @@
 	</div>
 
 	<div id="inventoryModal" class="modal-overlay" hidden>
-		<form id="inventoryForm" class="card form-card modal-form">
+		<form id="inventoryForm" class="card form-card modal-form" autocomplete="off">
 			<div class="modal-head">
 				<h3>Inventory Entry</h3>
 				<button type="button" id="closeInventoryModalBtn" class="ghost-btn modal-close" aria-label="Close">Close</button>
@@ -165,8 +179,10 @@
 			<input id="inventoryId" type="hidden">
 
 			<label for="inventoryItem">Item</label>
-			<input id="inventoryItemInput" type="text" list="inventoryItemList" placeholder="Type SKU or description" autocomplete="off" required>
-			<datalist id="inventoryItemList"></datalist>
+			<div id="inventoryItemWrap" class="autocomplete-wrap">
+				<input id="inventoryItemInput" type="text" placeholder="Type SKU or description" autocomplete="off" required>
+				<ul id="inventoryItemPopup" class="autocomplete-popup" hidden></ul>
+			</div>
 			<input id="inventoryItem" type="hidden" required>
 
 			<label for="inventoryQty">Quantity</label>
@@ -179,14 +195,15 @@
 			<input id="inventoryPullout" type="date">
 
 			<label for="inventoryRemarks">Remarks</label>
-			<select id="inventoryRemarks" required>
+			<select id="inventoryRemarks">
+				<option value="">Select remarks</option>
 				<option value="Yes, Intact">Yes, Intact</option>
 				<option value="Yes, Loose">Yes, Loose</option>
 				<option value="No, Loose">No, Loose</option>
 			</select>
 
 			<label for="inventoryComment">Comment</label>
-			<textarea id="inventoryComment" rows="2" placeholder="Add comment"></textarea>
+			<textarea id="inventoryComment" rows="2" placeholder="Add comment" autocomplete="off"></textarea>
 
 			<div class="form-actions">
 				<button type="submit" class="primary-btn">Save</button>
@@ -195,6 +212,20 @@
 		</form>
 	</div>
 
+	<div id="messageModal" class="modal-overlay message-modal" hidden>
+		<div class="card form-card message-modal-card">
+			<div class="modal-head">
+				<h3>Unable to Save</h3>
+				<button type="button" id="closeMessageModalBtn" class="ghost-btn modal-close" aria-label="Close">Close</button>
+			</div>
+			<p id="messageModalText" class="message-modal-text"></p>
+			<div class="form-actions">
+				<button type="button" id="okMessageModalBtn" class="primary-btn">OK</button>
+			</div>
+		</div>
+	</div>
+
+	<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 	<script src="script.js"></script>
 </body>
 </html>
