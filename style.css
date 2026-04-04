@@ -486,6 +486,21 @@ th {
 	width: 120px;
 }
 
+.maintenance-table .actions .icon-btn {
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	display: inline-grid;
+	place-items: center;
+	border-radius: 8px;
+}
+
+.maintenance-table .actions .icon-btn svg {
+	width: 16px;
+	height: 16px;
+	fill: currentColor;
+}
+
 .actions button {
 	padding: 0.4rem 0.6rem;
 	margin-right: 0.35rem;

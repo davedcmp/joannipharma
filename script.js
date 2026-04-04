@@ -648,8 +648,16 @@ function renderVendorRows() {
 		tr.innerHTML = `
 			<td>${escapeHtml(vendor.name)}</td>
 			<td class="actions">
-				<button type="button" data-action="edit-vendor" data-id="${vendor.id}">Edit</button>
-				<button type="button" data-action="delete-vendor" data-id="${vendor.id}" class="danger">Delete</button>
+				<button type="button" data-action="edit-vendor" data-id="${vendor.id}" class="icon-btn" aria-label="Edit vendor" title="Edit">
+					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+						<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.96 1.96 3.75 3.75 2.13-1.79Z"/>
+					</svg>
+				</button>
+				<button type="button" data-action="delete-vendor" data-id="${vendor.id}" class="icon-btn danger" aria-label="Delete vendor" title="Delete">
+					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+						<path d="M9 3h6l1 2h5v2H3V5h5l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM6 9h2v9H6V9Zm1 12a2 2 0 0 1-2-2V8h14v11a2 2 0 0 1-2 2H7Z"/>
+					</svg>
+				</button>
 			</td>
 		`;
 		refs.vendorRows.appendChild(tr);
@@ -669,8 +677,16 @@ function renderItemRows() {
 			<td>${escapeHtml(vendor ? vendor.name : "-")}</td>
 			<td>${escapeHtml(policyLabel(item))}</td>
 			<td class="actions">
-				<button type="button" data-action="edit-item" data-id="${item.id}">Edit</button>
-				<button type="button" data-action="delete-item" data-id="${item.id}" class="danger">Delete</button>
+				<button type="button" data-action="edit-item" data-id="${item.id}" class="icon-btn" aria-label="Edit item" title="Edit">
+					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+						<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.96 1.96 3.75 3.75 2.13-1.79Z"/>
+					</svg>
+				</button>
+				<button type="button" data-action="delete-item" data-id="${item.id}" class="icon-btn danger" aria-label="Delete item" title="Delete">
+					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+						<path d="M9 3h6l1 2h5v2H3V5h5l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM6 9h2v9H6V9Zm1 12a2 2 0 0 1-2-2V8h14v11a2 2 0 0 1-2 2H7Z"/>
+					</svg>
+				</button>
 			</td>
 		`;
 		refs.itemRows.appendChild(tr);
