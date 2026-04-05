@@ -1627,10 +1627,37 @@ function importCsvText(text) {
 		"remarks",
 		"comment"
 	];
+	const fullExportHeaderNoPullout = [
+		"record_type",
+		"id",
+		"name",
+		"sku",
+		"description",
+		"vendor_id",
+		"return_policy_type",
+		"return_policy_months",
+		"item_id",
+		"quantity",
+		"expiry_date",
+		"remarks",
+		"comment"
+	];
 	const fullExportHeaderWithCompleted = [...fullExportHeader, "completed"];
+	const fullExportHeaderNoPulloutWithCompleted = [...fullExportHeaderNoPullout, "completed"];
 
-	if (matchesHeader(header, fullExportHeader) || matchesHeader(header, fullExportHeaderWithCompleted)) {
+	if (
+		matchesHeader(header, fullExportHeader)
+		|| matchesHeader(header, fullExportHeaderWithCompleted)
+		|| matchesHeader(header, fullExportHeaderNoPullout)
+		|| matchesHeader(header, fullExportHeaderNoPulloutWithCompleted)
+	) {
 		const hasCompletedColumn = matchesHeader(header, fullExportHeaderWithCompleted);
+		const hasCompletedWithoutPullout = matchesHeader(header, fullExportHeaderNoPulloutWithCompleted);
+		const hasPulloutColumn = matchesHeader(header, fullExportHeader) || matchesHeader(header, fullExportHeaderWithCompleted);
+		const hasCompleted = hasCompletedColumn || hasCompletedWithoutPullout;
+		const remarksIndex = hasPulloutColumn ? 12 : 11;
+		const commentIndex = hasPulloutColumn ? 13 : 12;
+		const completedIndex = hasPulloutColumn ? 14 : 13;
 		state.vendors = dataRows
 			.filter((row) => (row[0] || "").trim().toLowerCase() === "vendor")
 			.map((row) => ({
@@ -1658,10 +1685,10 @@ function importCsvText(text) {
 				itemId: (row[8] || "").trim(),
 				quantity: parseQuantityValue(row[9]),
 				expiryDate: (row[10] || "").trim(),
-				pulloutDate: normalizeMonthYear((row[11] || "").trim()),
-				remarks: REMARK_OPTIONS.includes(row[12]) ? row[12] : "",
-				comment: row[13] || "",
-				completed: hasCompletedColumn ? parseCompletedValue(row[14]) : false
+				pulloutDate: hasPulloutColumn ? normalizeMonthYear((row[11] || "").trim()) : "",
+				remarks: REMARK_OPTIONS.includes(row[remarksIndex]) ? row[remarksIndex] : "",
+				comment: row[commentIndex] || "",
+				completed: hasCompleted ? parseCompletedValue(row[completedIndex]) : false
 			}))
 			.filter((entry) => entry.itemId);
 
@@ -1685,19 +1712,30 @@ function importCsvText(text) {
 	}
 
 	const inventoryOnlyHeader = ["id", "item_id", "quantity", "expiry_date", "pullout_date", "remarks", "comment"];
+	const inventoryOnlyHeaderNoPullout = ["id", "item_id", "quantity", "expiry_date", "remarks", "comment"];
 	const inventoryOnlyHeaderWithCompleted = [...inventoryOnlyHeader, "completed"];
+	const inventoryOnlyHeaderNoPulloutWithCompleted = [...inventoryOnlyHeaderNoPullout, "completed"];
 
-	if (matchesHeader(header, inventoryOnlyHeader) || matchesHeader(header, inventoryOnlyHeaderWithCompleted)) {
-		const hasCompletedColumn = matchesHeader(header, inventoryOnlyHeaderWithCompleted);
+	if (
+		matchesHeader(header, inventoryOnlyHeader)
+		|| matchesHeader(header, inventoryOnlyHeaderWithCompleted)
+		|| matchesHeader(header, inventoryOnlyHeaderNoPullout)
+		|| matchesHeader(header, inventoryOnlyHeaderNoPulloutWithCompleted)
+	) {
+		const hasPulloutColumn = matchesHeader(header, inventoryOnlyHeader) || matchesHeader(header, inventoryOnlyHeaderWithCompleted);
+		const hasCompletedColumn = matchesHeader(header, inventoryOnlyHeaderWithCompleted) || matchesHeader(header, inventoryOnlyHeaderNoPulloutWithCompleted);
+		const remarksIndex = hasPulloutColumn ? 5 : 4;
+		const commentIndex = hasPulloutColumn ? 6 : 5;
+		const completedIndex = hasPulloutColumn ? 7 : 6;
 		state.inventory = dataRows.map((row) => ({
 			id: row[0] || uid(),
 			itemId: (row[1] || "").trim(),
 			quantity: parseQuantityValue(row[2]),
 			expiryDate: (row[3] || "").trim(),
-			pulloutDate: normalizeMonthYear((row[4] || "").trim()),
-			remarks: REMARK_OPTIONS.includes(row[5]) ? row[5] : "",
-			comment: row[6] || "",
-			completed: hasCompletedColumn ? parseCompletedValue(row[7]) : false
+			pulloutDate: hasPulloutColumn ? normalizeMonthYear((row[4] || "").trim()) : "",
+			remarks: REMARK_OPTIONS.includes(row[remarksIndex]) ? row[remarksIndex] : "",
+			comment: row[commentIndex] || "",
+			completed: hasCompletedColumn ? parseCompletedValue(row[completedIndex]) : false
 		})).filter((entry) => entry.itemId);
 		persist("inventory");
 		return;

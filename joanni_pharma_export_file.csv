@@ -1,0 +1,69 @@
+record_type,id,name,sku,description,vendor_id,return_policy_type,return_policy_months,item_id,quantity,expiry_date,pullout_date,remarks,comment,completed
+vendor,v-zuellig,Zuellig Pharma,,,,,,,,,,,,
+vendor,v-getz,Getz Bros.,,,,,,,,,,,,
+vendor,v-organica,Organica,,,,,,,,,,,,
+vendor,v-lpd,LPD Remiture,,,,,,,,,,,,
+vendor,v-belgan,Belgan Mktg,,,,,,,,,,,,
+vendor,v-remar,Remar Mktg.,,,,,,,,,,,,
+vendor,v-unilab,"Unilab, Inc.",,,,,,,,,,,,
+vendor,v-oxford,Oxford,,,,,,,,,,,,
+vendor,v-goodfellow,Goodfellow,,,,,,,,,,,,
+vendor,v-global,Global Therapeutics,,,,,,,,,,,,
+vendor,v-healol,Healol Pharma,,,,,,,,,,,,
+vendor,v-metro,"Metro Drug, Inc.",,,,,,,,,,,,
+item,i-26708,,26708,Ethoxin 100mg,v-zuellig,months_before_expiry,1,,,,,,,
+item,i-72055,,72055,Thenof-B,v-getz,months_before_expiry,1,,,,,,,
+item,i-75211,,75211,Clearsight Cap (20),v-organica,months_before_expiry,1,,,,,,,
+item,i-71033,,71033,Megaman,v-lpd,months_before_expiry,1,,,,,,,
+item,i-60223,,60223,Koi Herbal (100),v-belgan,months_before_expiry,4,,,,,,,
+item,i-37804,,37804,Optun (21),v-remar,months_before_expiry,7,,,,,,,
+item,i-62757,,62757,Fozal MR (20),v-unilab,expiry_month,0,,,,,,,
+item,i-61792,,61792,Furic 40mg,v-zuellig,months_before_expiry,1,,,,,,,
+item,i-61793,,61793,Furic 80mg,v-zuellig,months_before_expiry,1,,,,,,,
+item,i-74009,,74009,Aminodg,v-oxford,months_before_expiry,4,,,,,,,
+item,i-63855,,63855,Tacit 10 meq 30s (30),v-unilab,expiry_month,0,,,,,,,
+item,i-6582,,6582,Faktu Supp,v-zuellig,months_before_expiry,1,,,,,,,
+item,i-63555,,63555,Eposino Inj.,v-goodfellow,months_before_expiry,5,,,,,,,
+item,i-47436,,47436,Avamax 20mg,v-unilab,expiry_month,0,,,,,,,
+item,i-12787,,12787,Cardiosel 50mg (40),v-unilab,expiry_month,0,,,,,,,
+item,i-61626,,61626,Carvid 25mg (36),v-unilab,expiry_month,0,,,,,,,
+item,i-75798,,75798,Besprin (30),v-global,months_before_expiry,8,,,,,,,
+item,i-74456,,74456,Kenzar 100mg (change),v-global,months_before_expiry,8,,,,,,,
+item,i-74160,,74160,Itorvaz 20mg,v-global,months_before_expiry,8,,,,,,,
+item,i-70061,,70061,Lavil 20mg,v-healol,expiry_month,0,,,,,,,
+item,i-62026,,62026,Lipitor 80mg,v-zuellig,months_before_expiry,1,,,,,,,
+item,i-8938,,8938,Logimax,v-zuellig,months_before_expiry,1,,,,,,,
+item,i-76821,,76821,Merit 80mg (30),v-unilab,expiry_month,0,,,,,,,
+item,i-38898,,38898,Neosartan 50mg,v-metro,months_before_expiry,1,,,,,,,
+item,i-62353,,62353,Neosartan Plus 50mg/12.5mg,v-metro,months_before_expiry,1,,,,,,,
+item,i-49435,,49435,Plogrel 75mg,v-zuellig,expiry_month,0,,,,,,,
+item,i-74738,,74738,Spirofar 25mg,v-global,months_before_expiry,8,,,,,,,
+item,i-67692,,67692,Tareg 80mg,v-zuellig,months_before_expiry,1,,,,,,,
+inventory,inv-26708,,,,,,,i-26708,35,2026-03-01,,"No, Loose",SOLD OUT,true
+inventory,inv-72055,,,,,,,i-72055,60,2026-03-01,,"Yes, Loose",SOLD OUT,true
+inventory,inv-75211,,,,,,,i-75211,20,2026-03-01,,"Yes, Loose",,true
+inventory,inv-71033,,,,,,,i-71033,13,2026-03-01,,"No, Loose",RECALL,false
+inventory,inv-60223,,,,,,,i-60223,106,2026-06-01,,"Yes, Loose",,true
+inventory,inv-37804,,,,,,,i-37804,34,2026-09-01,,"Yes, Loose",,true
+inventory,inv-62757,,,,,,,i-62757,50,2026-02-01,,"Yes, Intact",,true
+inventory,inv-61792,,,,,,,i-61792,47,2026-03-01,,"No, Loose",for push!,false
+inventory,inv-61793,,,,,,,i-61793,100,2026-03-01,,"No, Loose",for push!,false
+inventory,inv-74009,,,,,,,i-74009,99,2026-06-01,,"Yes, Loose",SOLD OUT,true
+inventory,inv-63855,,,,,,,i-63855,35,2026-02-01,,"Yes, Intact",,true
+inventory,inv-6582,,,,,,,i-6582,40,2026-03-01,,"No, Loose",SOLD OUT,true
+inventory,inv-63555,,,,,,,i-63555,,2026-07-01,,"Yes, Loose",SOLD OUT,true
+inventory,inv-47436,,,,,,,i-47436,,2026-02-01,,"Yes, Intact",SOLD OUT,true
+inventory,inv-12787,,,,,,,i-12787,,2026-02-01,,"Yes, Intact",,true
+inventory,inv-61626,,,,,,,i-61626,,2026-02-01,,"Yes, Intact",,true
+inventory,inv-75798,,,,,,,i-75798,,2026-01-01,,"No, Loose",ON THE MONTH (SO),true
+inventory,inv-74456,,,,,,,i-74456,,2026-01-01,,"No, Loose",ON THE MONTH (SO),true
+inventory,inv-74160,,,,,,,i-74160,,2026-01-01,,"No, Loose",SOLD OUT,true
+inventory,inv-70061,,,,,,,i-70061,,2026-02-01,,"Yes, Loose",SOLD OUT,true
+inventory,inv-62026,,,,,,,i-62026,,2026-03-01,,"No, Loose",for push! BD,false
+inventory,inv-8938,,,,,,,i-8938,,2026-03-01,,"No, Loose",for push! BD,false
+inventory,inv-76821,,,,,,,i-76821,,2026-02-01,,"Yes, Intact",,true
+inventory,inv-38898,,,,,,,i-38898,,2026-03-01,,"No, Loose",SOLD OUT,true
+inventory,inv-62353,,,,,,,i-62353,,2026-03-01,,"No, Loose",,false
+inventory,inv-49435,,,,,,,i-49435,,2026-02-01,,"Yes, Intact",SOLD OUT,true
+inventory,inv-74738,,,,,,,i-74738,,2026-10-01,,"No, Loose",ON THE MONTH for push!,false
+inventory,inv-67692,,,,,,,i-67692,,2026-03-01,,"No, Loose",for push! SOLD OUT,true
