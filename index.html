@@ -33,20 +33,26 @@
 
 				<details>
 					<summary>Records</summary>
-					<button id="openVendorBtn" type="button" class="menu-link close-menu-link">Vendors</button>
-					<button id="openItemBtn" type="button" class="menu-link close-menu-link">Items</button>
+					<div class="menu-group-content">
+						<button id="openVendorBtn" type="button" class="menu-link close-menu-link">Vendors</button>
+						<button id="openItemBtn" type="button" class="menu-link close-menu-link">Items</button>
+					</div>
 				</details>
 
 				<details>
 					<summary>Data</summary>
-					<button id="exportCsvBtn" type="button" class="menu-link close-menu-link">Export CSV</button>
-					<button id="importCsvBtn" type="button" class="menu-link close-menu-link">Import CSV</button>
-					<input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
+					<div class="menu-group-content">
+						<button id="exportCsvBtn" type="button" class="menu-link close-menu-link">Export CSV</button>
+						<button id="importCsvBtn" type="button" class="menu-link close-menu-link">Import CSV</button>
+						<input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
+					</div>
 				</details>
 
 				<details>
 					<summary>Reports</summary>
-					<button id="exportExcelBtn" type="button" class="menu-link close-menu-link">Export to Excel</button>
+					<div class="menu-group-content">
+						<button id="exportExcelBtn" type="button" class="menu-link close-menu-link">Export to Excel</button>
+					</div>
 				</details>
 			</aside>
 
@@ -172,7 +178,7 @@
 		<form id="inventoryForm" class="card form-card modal-form" autocomplete="off">
 			<div class="modal-head">
 				<h3>Line Entry</h3>
-				<button type="button" id="closeInventoryModalBtn" class="ghost-btn modal-close" aria-label="Close">Close</button>
+				<button type="button" id="closeInventoryModalBtn" class="ghost-btn modal-close" aria-label="Close">X</button>
 			</div>
 			<input id="inventoryId" type="hidden">
 
@@ -210,12 +216,26 @@
 	<div id="messageModal" class="modal-overlay message-modal" hidden>
 		<div class="card form-card message-modal-card">
 			<div class="modal-head">
-				<h3>Unable to Save</h3>
-				<button type="button" id="closeMessageModalBtn" class="ghost-btn modal-close" aria-label="Close">Close</button>
+				<h3 id="messageModalTitle">Unable to Save</h3>
+				<button type="button" id="closeMessageModalBtn" class="ghost-btn modal-close" aria-label="Close">X</button>
 			</div>
 			<p id="messageModalText" class="message-modal-text"></p>
 			<div class="form-actions">
 				<button type="button" id="okMessageModalBtn" class="primary-btn">OK</button>
+			</div>
+		</div>
+	</div>
+
+	<div id="confirmModal" class="modal-overlay message-modal" hidden>
+		<div class="card form-card message-modal-card">
+			<div class="modal-head">
+				<h3>Confirm Delete</h3>
+				<button type="button" id="closeConfirmModalBtn" class="ghost-btn modal-close" aria-label="Close">X</button>
+			</div>
+			<p id="confirmModalText" class="message-modal-text">Are you sure you want to delete this item?</p>
+			<div class="form-actions">
+				<button type="button" id="confirmDeleteBtn" class="primary-btn">Delete</button>
+				<button type="button" id="cancelConfirmModalBtn" class="ghost-btn">Cancel</button>
 			</div>
 		</div>
 	</div>

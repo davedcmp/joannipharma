@@ -28,6 +28,8 @@ const itemVendorLookup = {
 	highlightedIndex: -1
 };
 
+let pendingDeleteAction = null;
+
 const refs = {
 	dashboardSection: document.getElementById("dashboardSection"),
 	vendorSection: document.getElementById("vendorSection"),
@@ -80,9 +82,15 @@ const refs = {
 	inventoryComment: document.getElementById("inventoryComment"),
 	cancelInventoryBtn: document.getElementById("cancelInventoryBtn"),
 	messageModal: document.getElementById("messageModal"),
+	messageModalTitle: document.getElementById("messageModalTitle"),
 	messageModalText: document.getElementById("messageModalText"),
 	closeMessageModalBtn: document.getElementById("closeMessageModalBtn"),
 	okMessageModalBtn: document.getElementById("okMessageModalBtn"),
+	confirmModal: document.getElementById("confirmModal"),
+	confirmModalText: document.getElementById("confirmModalText"),
+	closeConfirmModalBtn: document.getElementById("closeConfirmModalBtn"),
+	cancelConfirmModalBtn: document.getElementById("cancelConfirmModalBtn"),
+	confirmDeleteBtn: document.getElementById("confirmDeleteBtn"),
 	dashboardRows: document.getElementById("dashboardRows")
 };
 
@@ -97,9 +105,11 @@ function init() {
 function bindEvents() {
 	refs.menuToggleBtn.addEventListener("click", toggleMainMenu);
 	refs.menuBackdrop.addEventListener("click", closeMainMenu);
+	setupMainMenuSectionAnimations();
 	document.addEventListener("keydown", (event) => {
 		if (event.key === "Escape") {
 			closeMessageModal();
+			closeConfirmModal();
 			closeMainMenu();
 		}
 	});
@@ -196,6 +206,14 @@ function bindEvents() {
 			closeMessageModal();
 		}
 	});
+	refs.closeConfirmModalBtn.addEventListener("click", closeConfirmModal);
+	refs.cancelConfirmModalBtn.addEventListener("click", closeConfirmModal);
+	refs.confirmDeleteBtn.addEventListener("click", confirmDelete);
+	refs.confirmModal.addEventListener("click", (event) => {
+		if (event.target === refs.confirmModal) {
+			closeConfirmModal();
+		}
+	});
 
 	refs.exportCsvBtn.addEventListener("click", () => {
 		exportAllCsv();
@@ -226,6 +244,131 @@ function closeMainMenu() {
 	document.body.classList.remove("menu-open");
 	refs.menuBackdrop.hidden = true;
 	refs.menuToggleBtn.setAttribute("aria-expanded", "false");
+	collapseMainMenuSections();
+}
+
+function collapseMainMenuSections() {
+	if (!refs.menuPanel) {
+		return;
+	}
+
+	for (const section of refs.menuPanel.querySelectorAll("details")) {
+		setMenuSectionExpanded(section, false, { immediate: true });
+	}
+}
+
+function setupMainMenuSectionAnimations() {
+	if (!refs.menuPanel) {
+		return;
+	}
+
+	for (const section of refs.menuPanel.querySelectorAll("details")) {
+		const summary = section.querySelector("summary");
+		const content = section.querySelector(".menu-group-content");
+		if (!summary || !content) {
+			continue;
+		}
+
+		if (section.open) {
+			section.classList.add("is-open");
+			content.style.maxHeight = "none";
+			content.style.opacity = "1";
+			content.style.transform = "translateY(0)";
+			content.style.marginTop = "0.3rem";
+		} else {
+			section.classList.remove("is-open");
+		}
+
+		summary.addEventListener("click", (event) => {
+			event.preventDefault();
+			setMenuSectionExpanded(section, !section.classList.contains("is-open"));
+		});
+	}
+}
+
+function setMenuSectionExpanded(section, shouldOpen, options = {}) {
+	const { immediate = false } = options;
+	if (!section) {
+		return;
+	}
+
+	const content = section.querySelector(".menu-group-content");
+	if (!content) {
+		section.open = shouldOpen;
+		section.classList.toggle("is-open", shouldOpen);
+		return;
+	}
+
+	if (immediate) {
+		section.open = shouldOpen;
+		section.classList.toggle("is-open", shouldOpen);
+		content.style.transition = "none";
+		if (shouldOpen) {
+			content.style.maxHeight = "none";
+			content.style.opacity = "1";
+			content.style.transform = "translateY(0)";
+			content.style.marginTop = "0.3rem";
+		} else {
+			content.style.maxHeight = "0px";
+			content.style.opacity = "0";
+			content.style.transform = "translateY(-20px)";
+			content.style.marginTop = "0";
+		}
+		requestAnimationFrame(() => {
+			content.style.transition = "";
+		});
+		return;
+	}
+
+	if (shouldOpen) {
+		section.open = true;
+		content.style.maxHeight = "0px";
+		content.style.opacity = "0";
+		content.style.transform = "translateY(-20px)";
+		content.style.marginTop = "0";
+		void content.offsetHeight;
+
+		section.classList.add("is-open");
+		content.style.maxHeight = `${content.scrollHeight}px`;
+		content.style.opacity = "1";
+		content.style.transform = "translateY(0)";
+		content.style.marginTop = "0.3rem";
+
+		const onOpenEnd = (event) => {
+			if (event.target !== content || event.propertyName !== "max-height") {
+				return;
+			}
+			content.style.maxHeight = "none";
+			content.removeEventListener("transitionend", onOpenEnd);
+		};
+		content.addEventListener("transitionend", onOpenEnd);
+		return;
+	}
+
+	if (!section.open && !section.classList.contains("is-open")) {
+		return;
+	}
+
+	content.style.maxHeight = `${content.scrollHeight}px`;
+	content.style.opacity = "1";
+	content.style.transform = "translateY(0)";
+	content.style.marginTop = "0.3rem";
+	void content.offsetHeight;
+
+	section.classList.remove("is-open");
+	content.style.maxHeight = "0px";
+	content.style.opacity = "0";
+	content.style.transform = "translateY(-20px)";
+	content.style.marginTop = "0";
+
+	const onCloseEnd = (event) => {
+		if (event.target !== content || event.propertyName !== "max-height") {
+			return;
+		}
+		section.open = false;
+		content.removeEventListener("transitionend", onCloseEnd);
+	};
+	content.addEventListener("transitionend", onCloseEnd);
 }
 
 function showSection(name) {
@@ -364,13 +507,15 @@ function editVendor(id) {
 function deleteVendor(id) {
 	const inUse = state.items.some((item) => item.vendorId === id);
 	if (inUse) {
-		window.alert("Vendor is used by one or more items. Update or delete those items first.");
+		showIssueModal("Vendor is used by one or more items. Update or delete those items first.", "Cannot Delete");
 		return;
 	}
 
-	state.vendors = state.vendors.filter((entry) => entry.id !== id);
-	persist("vendors");
-	renderAll();
+	showDeleteConfirm("Delete this vendor?", () => {
+		state.vendors = state.vendors.filter((entry) => entry.id !== id);
+		persist("vendors");
+		renderAll();
+	});
 }
 
 function resetVendorForm() {
@@ -444,13 +589,15 @@ function editItem(id) {
 function deleteItem(id) {
 	const inUse = state.inventory.some((row) => row.itemId === id);
 	if (inUse) {
-		window.alert("Item is used by inventory rows. Delete those rows first.");
+		showIssueModal("Item is used by inventory rows. Delete those rows first.", "Cannot Delete");
 		return;
 	}
 
-	state.items = state.items.filter((entry) => entry.id !== id);
-	persist("items");
-	renderAll();
+	showDeleteConfirm("Delete this item?", () => {
+		state.items = state.items.filter((entry) => entry.id !== id);
+		persist("items");
+		renderAll();
+	});
 }
 
 function resetItemForm() {
@@ -527,10 +674,12 @@ function editInventory(id) {
 }
 
 function deleteInventory(id) {
-	state.inventory = state.inventory.filter((entry) => entry.id !== id);
-	state.inventoryDrafts.delete(id);
-	persist("inventory");
-	renderDashboardRows();
+	showDeleteConfirm("Delete this inventory row?", () => {
+		state.inventory = state.inventory.filter((entry) => entry.id !== id);
+		state.inventoryDrafts.delete(id);
+		persist("inventory");
+		renderDashboardRows();
+	});
 }
 
 function stageInventoryInlineField(id, field, value, options = {}) {
@@ -1053,7 +1202,8 @@ function closeInventoryModal() {
 	document.body.classList.remove("modal-open");
 }
 
-function showIssueModal(message) {
+function showIssueModal(message, title = "Unable to Save") {
+	refs.messageModalTitle.textContent = title;
 	refs.messageModalText.textContent = message;
 	refs.messageModal.hidden = false;
 	document.body.classList.add("modal-open");
@@ -1061,8 +1211,31 @@ function showIssueModal(message) {
 
 function closeMessageModal() {
 	refs.messageModal.hidden = true;
-	if (refs.inventoryModal.hidden) {
+	if (refs.inventoryModal.hidden && refs.confirmModal.hidden) {
 		document.body.classList.remove("modal-open");
+	}
+}
+
+function showDeleteConfirm(message, onConfirm) {
+	pendingDeleteAction = typeof onConfirm === "function" ? onConfirm : null;
+	refs.confirmModalText.textContent = message;
+	refs.confirmModal.hidden = false;
+	document.body.classList.add("modal-open");
+}
+
+function closeConfirmModal() {
+	refs.confirmModal.hidden = true;
+	pendingDeleteAction = null;
+	if (refs.inventoryModal.hidden && refs.messageModal.hidden) {
+		document.body.classList.remove("modal-open");
+	}
+}
+
+function confirmDelete() {
+	const action = pendingDeleteAction;
+	closeConfirmModal();
+	if (typeof action === "function") {
+		action();
 	}
 }
 
@@ -1279,9 +1452,9 @@ function onImportCsv(event) {
 			const text = String(reader.result || "");
 			importCsvText(text);
 			renderAll();
-			window.alert("CSV imported successfully.");
+			showIssueModal("CSV imported successfully.", "Import Complete");
 		} catch (error) {
-			window.alert(`Import failed: ${error.message}`);
+			showIssueModal(`Import failed: ${error.message}`, "Import Failed");
 		} finally {
 			refs.csvFileInput.value = "";
 		}
@@ -1290,7 +1463,8 @@ function onImportCsv(event) {
 }
 
 function importCsvText(text) {
-	const rows = parseCsv(text);
+	const cleanText = String(text || "").replace(/^\uFEFF/, "");
+	const rows = parseCsv(cleanText);
 	if (rows.length < 2) {
 		throw new Error("CSV has no data rows.");
 	}
@@ -1466,16 +1640,23 @@ function toCsvValue(value) {
 
 function normalizeHeader(value) {
 	return String(value || "")
+		.replace(/^\uFEFF/, "")
 		.trim()
 		.toLowerCase()
-		.replaceAll(" ", "_");
+		.replace(/[\s-]+/g, "_");
 }
 
 function matchesHeader(actual, expected) {
-	if (actual.length !== expected.length) {
+	const normalized = [...actual];
+	while (normalized.length > 0 && !normalized[normalized.length - 1]) {
+		normalized.pop();
+	}
+
+	if (normalized.length !== expected.length) {
 		return false;
 	}
-	return expected.every((entry, index) => actual[index] === entry);
+
+	return expected.every((entry, index) => normalized[index] === entry);
 }
 
 function policyLabel(item) {
