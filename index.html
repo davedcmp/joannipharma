@@ -47,8 +47,11 @@
 
 			<section id="dashboardSection" class="content-section">
 				<div class="dashboard-toolbar card">
+					<label class="dashboard-search" for="dashboardSearchInput">
+						<span>Search</span>
+						<input id="dashboardSearchInput" type="text" placeholder="Search SKU, description, vendor, remarks, comment" autocomplete="off">
+					</label>
 					<div class="toolbar-actions">
-						<button id="openSearchModalBtn" class="ghost-btn" type="button">Search</button>
 						<button id="exportExcelBtn" class="ghost-btn" type="button">Export to Excel</button>
 						<button id="newInventoryBtn" class="primary-btn" type="button">Add Line</button>
 					</div>
@@ -197,55 +200,6 @@
 			<div class="form-actions">
 				<button type="submit" class="primary-btn">Save</button>
 				<button type="button" id="cancelInventoryBtn" class="ghost-btn">Cancel</button>
-			</div>
-		</form>
-	</div>
-
-	<div id="searchModal" class="modal-overlay" hidden>
-		<form id="searchForm" class="card form-card modal-form search-modal-form" autocomplete="off">
-			<div class="modal-head">
-				<h3>Search Dashboard</h3>
-				<button type="button" id="closeSearchModalBtn" class="ghost-btn modal-close" aria-label="Close">Close</button>
-			</div>
-
-			<div class="search-grid">
-				<label for="searchSku">SKU#</label>
-				<input id="searchSku" type="text" placeholder="Any SKU" autocomplete="off">
-
-				<label for="searchDescription">Description</label>
-				<input id="searchDescription" type="text" placeholder="Any description" autocomplete="off">
-
-				<label for="searchVendor">Vendor</label>
-				<input id="searchVendor" type="text" placeholder="Any vendor" autocomplete="off">
-
-				<label for="searchQty">Qty</label>
-				<input id="searchQty" type="text" placeholder="Any quantity" autocomplete="off">
-
-				<label for="searchExpiry">Expiry</label>
-				<input id="searchExpiry" type="month">
-
-				<label for="searchPolicy">Return Policy</label>
-				<input id="searchPolicy" type="text" placeholder="Any return policy" autocomplete="off">
-
-				<label for="searchPullout">Pull-out</label>
-				<input id="searchPullout" type="month">
-
-				<label for="searchRemarks">Remarks</label>
-				<select id="searchRemarks">
-					<option value="">Any</option>
-					<option value="Yes, Intact">Yes, Intact</option>
-					<option value="Yes, Loose">Yes, Loose</option>
-					<option value="No, Loose">No, Loose</option>
-				</select>
-
-				<label for="searchComment">Comment</label>
-				<input id="searchComment" type="text" placeholder="Any comment" autocomplete="off">
-			</div>
-
-			<div class="form-actions">
-				<button type="submit" class="primary-btn">Apply Search</button>
-				<button type="button" id="clearSearchBtn" class="ghost-btn">Clear</button>
-				<button type="button" id="cancelSearchBtn" class="ghost-btn">Cancel</button>
 			</div>
 		</form>
 	</div>

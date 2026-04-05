@@ -6,25 +6,11 @@ const STORAGE_KEYS = {
 
 const REMARK_OPTIONS = ["Yes, Intact", "Yes, Loose", "No, Loose"];
 
-function createEmptyDashboardFilters() {
-	return {
-		sku: "",
-		description: "",
-		vendor: "",
-		quantity: "",
-		expiry: "",
-		policy: "",
-		pullout: "",
-		remarks: "",
-		comment: ""
-	};
-}
-
 const state = {
 	vendors: readStore(STORAGE_KEYS.vendors),
 	items: readStore(STORAGE_KEYS.items),
 	inventory: readStore(STORAGE_KEYS.inventory),
-	dashboardFilters: createEmptyDashboardFilters(),
+	dashboardSearch: "",
 	inventoryDrafts: new Map()
 };
 
@@ -78,22 +64,8 @@ const refs = {
 	cancelItemBtn: document.getElementById("cancelItemBtn"),
 
 	newInventoryBtn: document.getElementById("newInventoryBtn"),
-	openSearchModalBtn: document.getElementById("openSearchModalBtn"),
 	exportExcelBtn: document.getElementById("exportExcelBtn"),
-	searchModal: document.getElementById("searchModal"),
-	searchForm: document.getElementById("searchForm"),
-	closeSearchModalBtn: document.getElementById("closeSearchModalBtn"),
-	cancelSearchBtn: document.getElementById("cancelSearchBtn"),
-	clearSearchBtn: document.getElementById("clearSearchBtn"),
-	searchSku: document.getElementById("searchSku"),
-	searchDescription: document.getElementById("searchDescription"),
-	searchVendor: document.getElementById("searchVendor"),
-	searchQty: document.getElementById("searchQty"),
-	searchExpiry: document.getElementById("searchExpiry"),
-	searchPolicy: document.getElementById("searchPolicy"),
-	searchPullout: document.getElementById("searchPullout"),
-	searchRemarks: document.getElementById("searchRemarks"),
-	searchComment: document.getElementById("searchComment"),
+	dashboardSearchInput: document.getElementById("dashboardSearchInput"),
 	inventoryModal: document.getElementById("inventoryModal"),
 	inventoryForm: document.getElementById("inventoryForm"),
 	closeInventoryModalBtn: document.getElementById("closeInventoryModalBtn"),
@@ -127,7 +99,6 @@ function bindEvents() {
 	refs.menuBackdrop.addEventListener("click", closeMainMenu);
 	document.addEventListener("keydown", (event) => {
 		if (event.key === "Escape") {
-			closeSearchModal();
 			closeMessageModal();
 			closeMainMenu();
 		}
@@ -174,15 +145,9 @@ function bindEvents() {
 		resetInventoryForm();
 		openInventoryModal();
 	});
-	refs.openSearchModalBtn.addEventListener("click", openSearchModal);
-	refs.searchForm.addEventListener("submit", onApplyDashboardSearch);
-	refs.closeSearchModalBtn.addEventListener("click", closeSearchModal);
-	refs.cancelSearchBtn.addEventListener("click", closeSearchModal);
-	refs.clearSearchBtn.addEventListener("click", clearDashboardSearch);
-	refs.searchModal.addEventListener("click", (event) => {
-		if (event.target === refs.searchModal) {
-			closeSearchModal();
-		}
+	refs.dashboardSearchInput.addEventListener("input", () => {
+		state.dashboardSearch = refs.dashboardSearchInput.value.trim().toLowerCase();
+		renderDashboardRows();
 	});
 	refs.exportExcelBtn.addEventListener("click", exportDashboardExcel);
 	refs.dashboardRows.addEventListener("click", onDashboardTableClick);
@@ -1077,80 +1042,25 @@ function closeInventoryPopup() {
 
 function openInventoryModal() {
 	refs.inventoryModal.hidden = false;
-	syncModalOpenClass();
+	document.body.classList.add("modal-open");
 }
 
 function closeInventoryModal() {
 	refs.inventoryModal.hidden = true;
-	syncModalOpenClass();
+	document.body.classList.remove("modal-open");
 }
 
 function showIssueModal(message) {
 	refs.messageModalText.textContent = message;
 	refs.messageModal.hidden = false;
-	syncModalOpenClass();
+	document.body.classList.add("modal-open");
 }
 
 function closeMessageModal() {
 	refs.messageModal.hidden = true;
-	syncModalOpenClass();
-}
-
-function openSearchModal() {
-	populateDashboardSearchForm();
-	refs.searchModal.hidden = false;
-	syncModalOpenClass();
-	refs.searchSku.focus();
-}
-
-function closeSearchModal() {
-	refs.searchModal.hidden = true;
-	syncModalOpenClass();
-}
-
-function onApplyDashboardSearch(event) {
-	event.preventDefault();
-	state.dashboardFilters = readDashboardSearchFormValues();
-	renderDashboardRows();
-	closeSearchModal();
-}
-
-function clearDashboardSearch() {
-	state.dashboardFilters = createEmptyDashboardFilters();
-	populateDashboardSearchForm();
-	renderDashboardRows();
-	closeSearchModal();
-}
-
-function populateDashboardSearchForm() {
-	refs.searchSku.value = state.dashboardFilters.sku;
-	refs.searchDescription.value = state.dashboardFilters.description;
-	refs.searchVendor.value = state.dashboardFilters.vendor;
-	refs.searchQty.value = state.dashboardFilters.quantity;
-	refs.searchExpiry.value = state.dashboardFilters.expiry;
-	refs.searchPolicy.value = state.dashboardFilters.policy;
-	refs.searchPullout.value = state.dashboardFilters.pullout;
-	refs.searchRemarks.value = state.dashboardFilters.remarks;
-	refs.searchComment.value = state.dashboardFilters.comment;
-}
-
-function readDashboardSearchFormValues() {
-	return {
-		sku: String(refs.searchSku.value || "").trim(),
-		description: String(refs.searchDescription.value || "").trim(),
-		vendor: String(refs.searchVendor.value || "").trim(),
-		quantity: String(refs.searchQty.value || "").trim(),
-		expiry: String(refs.searchExpiry.value || "").trim(),
-		policy: String(refs.searchPolicy.value || "").trim(),
-		pullout: String(refs.searchPullout.value || "").trim(),
-		remarks: String(refs.searchRemarks.value || "").trim(),
-		comment: String(refs.searchComment.value || "").trim()
-	};
-}
-
-function syncModalOpenClass() {
-	const hasVisibleModal = !refs.inventoryModal.hidden || !refs.searchModal.hidden || !refs.messageModal.hidden;
-	document.body.classList.toggle("modal-open", hasVisibleModal);
+	if (refs.inventoryModal.hidden) {
+		document.body.classList.remove("modal-open");
+	}
 }
 
 function exportDashboardExcel() {
@@ -1168,7 +1078,7 @@ function exportDashboardExcel() {
 
 	const dataRows = [];
 
-	for (const entry of collectDashboardEntries()) {
+	for (const entry of collectDashboardEntries(state.dashboardSearch)) {
 		const { row, item, vendorName, policyText, pulloutDate } = entry;
 		dataRows.push([
 			item.sku,
@@ -1281,9 +1191,10 @@ function buildInventoryCsvRow(entry, itemMap) {
 	];
 }
 
-function collectDashboardEntries() {
+function collectDashboardEntries(searchTerm = "") {
 	const itemMap = createMapById(state.items);
 	const vendorMap = createMapById(state.vendors);
+	const normalizedSearchTerm = String(searchTerm || "").trim().toLowerCase();
 	const entries = [];
 
 	for (const row of state.inventory) {
@@ -1296,8 +1207,19 @@ function collectDashboardEntries() {
 		const vendorName = vendor ? vendor.name : "-";
 		const pulloutDate = resolvePulloutDate(row, item);
 		const policyText = policyLabel(item);
+		const haystack = [
+			item.sku,
+			item.description,
+			vendorName,
+			String(row.quantity ?? ""),
+			row.expiryDate || "",
+			policyText,
+			pulloutDate || "",
+			row.remarks || "",
+			row.comment || ""
+		].join(" ").toLowerCase();
 
-		if (!matchesDashboardFilters(row, item, vendorName, policyText, pulloutDate)) {
+		if (normalizedSearchTerm && !haystack.includes(normalizedSearchTerm)) {
 			continue;
 		}
 
@@ -1328,51 +1250,6 @@ function collectDashboardEntries() {
 	});
 
 	return entries;
-}
-
-function matchesDashboardFilters(row, item, vendorName, policyText, pulloutDate) {
-	const filters = state.dashboardFilters;
-	if (!filters) {
-		return true;
-	}
-
-	const includesText = (value, query) => String(value || "").toLowerCase().includes(String(query || "").toLowerCase());
-
-	if (filters.sku && !includesText(item.sku, filters.sku)) {
-		return false;
-	}
-	if (filters.description && !includesText(item.description, filters.description)) {
-		return false;
-	}
-	if (filters.vendor && !includesText(vendorName, filters.vendor)) {
-		return false;
-	}
-	if (filters.quantity && !includesText(String(row.quantity ?? ""), filters.quantity)) {
-		return false;
-	}
-	if (filters.expiry) {
-		const expiryMonthInput = dateStringToMonthInput(row.expiryDate || "");
-		if (expiryMonthInput !== filters.expiry) {
-			return false;
-		}
-	}
-	if (filters.policy && !includesText(policyText, filters.policy)) {
-		return false;
-	}
-	if (filters.pullout) {
-		const pulloutMonthInput = dateStringToMonthInput(monthYearToDateString(pulloutDate));
-		if (pulloutMonthInput !== filters.pullout) {
-			return false;
-		}
-	}
-	if (filters.remarks && !includesText(row.remarks, filters.remarks)) {
-		return false;
-	}
-	if (filters.comment && !includesText(row.comment, filters.comment)) {
-		return false;
-	}
-
-	return true;
 }
 
 function monthYearSortValue(value) {
