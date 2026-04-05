@@ -6,29 +6,6 @@ const STORAGE_KEYS = {
 
 const REMARK_OPTIONS = ["Yes, Intact", "Yes, Loose", "No, Loose"];
 
-const ICONS = {
-	edit: `
-		<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-			<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.96 1.96 3.75 3.75 2.13-1.79Z"/>
-		</svg>
-	`,
-	delete: `
-		<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-			<path d="M9 3h6l1 2h5v2H3V5h5l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM6 9h2v9H6V9Zm1 12a2 2 0 0 1-2-2V8h14v11a2 2 0 0 1-2 2H7Z"/>
-		</svg>
-	`,
-	save: `
-		<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-			<path d="M9.55 18.2 3.9 12.55l1.4-1.4 4.25 4.25L18.7 6.25l1.4 1.4-10.55 10.55Z"/>
-		</svg>
-	`,
-	cancel: `
-		<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-			<path d="M18.3 5.71 12 12.01l-6.3-6.3-1.41 1.41 6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.3 6.3 1.41-1.41-6.3-6.3 6.3-6.3-1.41-1.41Z"/>
-		</svg>
-	`
-};
-
 const state = {
 	vendors: readStore(STORAGE_KEYS.vendors),
 	items: readStore(STORAGE_KEYS.items),
@@ -117,6 +94,7 @@ const refs = {
 	closeMessageModalBtn: document.getElementById("closeMessageModalBtn"),
 	okMessageModalBtn: document.getElementById("okMessageModalBtn"),
 	confirmModal: document.getElementById("confirmModal"),
+	confirmModalTitle: document.getElementById("confirmModalTitle"),
 	confirmModalText: document.getElementById("confirmModalText"),
 	closeConfirmModalBtn: document.getElementById("closeConfirmModalBtn"),
 	cancelConfirmModalBtn: document.getElementById("cancelConfirmModalBtn"),
@@ -407,37 +385,13 @@ function renderAll() {
 	syncPolicyField();
 }
 
-function openModal(element) {
-	if (!element) {
-		return;
-	}
-
-	element.hidden = false;
-	document.body.classList.add("modal-open");
-}
-
-function closeModal(element) {
-	if (!element) {
-		return;
-	}
-
-	element.hidden = true;
-	syncModalBodyState();
-}
-
-function syncModalBodyState() {
-	const openModalExists = [refs.startupScreen, refs.inventoryModal, refs.messageModal, refs.confirmModal]
-		.filter(Boolean)
-		.some((element) => !element.hidden);
-	document.body.classList.toggle("modal-open", openModalExists);
-}
-
 function openStartupScreen() {
 	if (!refs.startupScreen) {
 		return;
 	}
 
-	openModal(refs.startupScreen);
+	refs.startupScreen.hidden = false;
+	document.body.classList.add("modal-open");
 }
 
 function closeStartupScreen() {
@@ -445,7 +399,10 @@ function closeStartupScreen() {
 		return;
 	}
 
-	closeModal(refs.startupScreen);
+	refs.startupScreen.hidden = true;
+	if (refs.inventoryModal.hidden && refs.messageModal.hidden && refs.confirmModal.hidden) {
+		document.body.classList.remove("modal-open");
+	}
 }
 
 function onStartupCandidateTableClick(event) {
@@ -492,14 +449,21 @@ function focusDashboardRow(id) {
 	}
 
 	targetRow.scrollIntoView({ behavior: "smooth", block: "center" });
-	targetRow.classList.remove("row-focus-target");
-	void targetRow.offsetWidth;
 	targetRow.classList.add("row-focus-target");
-	targetRow.focus({ preventScroll: true });
+
+	const removeHighlight = () => {
+		targetRow.classList.remove("row-focus-target");
+		targetRow.removeEventListener("animationend", removeHighlight);
+	};
+
+	targetRow.addEventListener("animationend", removeHighlight);
 
 	window.setTimeout(() => {
-		targetRow.classList.remove("row-focus-target");
-	}, 1700);
+		if (targetRow.classList.contains("row-focus-target")) {
+			targetRow.classList.remove("row-focus-target");
+			targetRow.removeEventListener("animationend", removeHighlight);
+		}
+	}, 1300);
 }
 
 function onVendorTableClick(event) {
@@ -555,6 +519,11 @@ function onDashboardTableClick(event) {
 
 	if (action === "edit-inventory") {
 		editInventory(id);
+		return;
+	}
+
+	if (action === "toggle-complete-inventory") {
+		toggleInventoryCompleted(id);
 		return;
 	}
 
@@ -829,24 +798,66 @@ function updateDashboardRowActionButtons(id, isInlineEditing) {
 	actionCell.innerHTML = buildDashboardRowActions(id, isInlineEditing);
 }
 
-function buildActionButtons(id, actions) {
-	return actions.map(({ action, label, title, icon, danger = false }) => `
-		<button type="button" data-action="${action}" data-id="${id}" class="icon-btn${danger ? " danger" : ""}" aria-label="${label}" title="${title}">
-			${icon}
-		</button>
-	`).join("");
+function buildDashboardRowActions(id, isInlineEditing) {
+	const row = state.inventory.find((entry) => entry.id === id);
+	const isCompleted = Boolean(row && row.completed);
+	const completeButtonLabel = isCompleted ? "Completed" : "Mark Complete";
+	const completeButtonClass = isCompleted
+		? "dashboard-complete-btn is-completed"
+		: "dashboard-complete-btn";
+
+	return isInlineEditing
+		? `
+			<button type="button" data-action="save-inline-inventory" data-id="${id}" class="icon-btn" aria-label="Save inline changes" title="Save">
+				<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+					<path d="M9.55 18.2 3.9 12.55l1.4-1.4 4.25 4.25L18.7 6.25l1.4 1.4-10.55 10.55Z"/>
+				</svg>
+			</button>
+			<button type="button" data-action="cancel-inline-inventory" data-id="${id}" class="icon-btn danger" aria-label="Cancel inline changes" title="Cancel">
+				<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+					<path d="M18.3 5.71 12 12.01l-6.3-6.3-1.41 1.41 6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.3 6.3 1.41-1.41-6.3-6.3 6.3-6.3-1.41-1.41Z"/>
+				</svg>
+			</button>
+		`
+		: `
+			<div class="dashboard-actions-top">
+				<button type="button" data-action="edit-inventory" data-id="${id}" class="icon-btn" aria-label="Edit inventory row" title="Edit">
+					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+						<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.96 1.96 3.75 3.75 2.13-1.79Z"/>
+					</svg>
+				</button>
+				<button type="button" data-action="delete-inventory" data-id="${id}" class="icon-btn danger" aria-label="Delete inventory row" title="Delete">
+					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+						<path d="M9 3h6l1 2h5v2H3V5h5l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM6 9h2v9H6V9Zm1 12a2 2 0 0 1-2-2V8h14v11a2 2 0 0 1-2 2H7Z"/>
+					</svg>
+				</button>
+			</div>
+			<button type="button" data-action="toggle-complete-inventory" data-id="${id}" class="${completeButtonClass}" aria-label="${completeButtonLabel} inventory row">${completeButtonLabel}</button>
+		`;
 }
 
-function buildDashboardRowActions(id, isInlineEditing) {
-	return isInlineEditing
-		? buildActionButtons(id, [
-			{ action: "save-inline-inventory", label: "Save inline changes", title: "Save", icon: ICONS.save },
-			{ action: "cancel-inline-inventory", label: "Cancel inline changes", title: "Cancel", icon: ICONS.cancel, danger: true }
-		])
-		: buildActionButtons(id, [
-			{ action: "edit-inventory", label: "Edit inventory row", title: "Edit", icon: ICONS.edit },
-			{ action: "delete-inventory", label: "Delete inventory row", title: "Delete", icon: ICONS.delete, danger: true }
-		]);
+function toggleInventoryCompleted(id) {
+	const row = state.inventory.find((entry) => entry.id === id);
+	if (!row) {
+		return;
+	}
+
+	const remarksValue = (row.remarks || "").trim();
+	if (!row.completed && !remarksValue) {
+		showIssueModal("Remarks is required before marking this row as completed.", "Remarks Required");
+		return;
+	}
+
+	const willComplete = !row.completed;
+	const confirmMessage = willComplete
+		? "Mark this row as completed?"
+		: "Mark this row as not completed?";
+
+	showConfirmModal(confirmMessage, () => {
+		row.completed = !row.completed;
+		persist("inventory");
+		updateDashboardRowActionButtons(id, false);
+	});
 }
 
 function saveInventoryInlineEdits(id) {
@@ -890,10 +901,16 @@ function renderVendorRows() {
 		tr.innerHTML = `
 			<td>${escapeHtml(vendor.name)}</td>
 			<td class="actions">
-				${buildActionButtons(vendor.id, [
-					{ action: "edit-vendor", label: "Edit vendor", title: "Edit", icon: ICONS.edit },
-					{ action: "delete-vendor", label: "Delete vendor", title: "Delete", icon: ICONS.delete, danger: true }
-				])}
+				<button type="button" data-action="edit-vendor" data-id="${vendor.id}" class="icon-btn" aria-label="Edit vendor" title="Edit">
+					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+						<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.96 1.96 3.75 3.75 2.13-1.79Z"/>
+					</svg>
+				</button>
+				<button type="button" data-action="delete-vendor" data-id="${vendor.id}" class="icon-btn danger" aria-label="Delete vendor" title="Delete">
+					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+						<path d="M9 3h6l1 2h5v2H3V5h5l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM6 9h2v9H6V9Zm1 12a2 2 0 0 1-2-2V8h14v11a2 2 0 0 1-2 2H7Z"/>
+					</svg>
+				</button>
 			</td>
 		`;
 		refs.vendorRows.appendChild(tr);
@@ -913,10 +930,16 @@ function renderItemRows() {
 			<td>${escapeHtml(vendor ? vendor.name : "-")}</td>
 			<td>${escapeHtml(policyLabel(item))}</td>
 			<td class="actions">
-				${buildActionButtons(item.id, [
-					{ action: "edit-item", label: "Edit item", title: "Edit", icon: ICONS.edit },
-					{ action: "delete-item", label: "Delete item", title: "Delete", icon: ICONS.delete, danger: true }
-				])}
+				<button type="button" data-action="edit-item" data-id="${item.id}" class="icon-btn" aria-label="Edit item" title="Edit">
+					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+						<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.96 1.96 3.75 3.75 2.13-1.79Z"/>
+					</svg>
+				</button>
+				<button type="button" data-action="delete-item" data-id="${item.id}" class="icon-btn danger" aria-label="Delete item" title="Delete">
+					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+						<path d="M9 3h6l1 2h5v2H3V5h5l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM6 9h2v9H6V9Zm1 12a2 2 0 0 1-2-2V8h14v11a2 2 0 0 1-2 2H7Z"/>
+					</svg>
+				</button>
 			</td>
 		`;
 		refs.itemRows.appendChild(tr);
@@ -935,8 +958,11 @@ function renderDashboardRows() {
 		const isInlineEditing = Boolean(draft);
 		const tr = document.createElement("tr");
 		tr.dataset.dashboardRowId = row.id;
-		tr.tabIndex = -1;
-		applyRowStatusClass(tr, rowStatus);
+		if (!row.completed && rowStatus === "expired") {
+			tr.classList.add("row-expired");
+		} else if (!row.completed && rowStatus === "pullout") {
+			tr.classList.add("row-pullout");
+		}
 		tr.innerHTML = `
 			<td>${escapeHtml(item.sku)}</td>
 			<td>
@@ -979,17 +1005,6 @@ function renderDashboardRows() {
 	}
 }
 
-function applyRowStatusClass(rowElement, rowStatus) {
-	if (rowStatus === "expired") {
-		rowElement.classList.add("row-expired");
-		return;
-	}
-
-	if (rowStatus === "pullout") {
-		rowElement.classList.add("row-pullout");
-	}
-}
-
 function renderStartupCandidateRows() {
 	if (!refs.startupCandidateRows || !refs.startupScreenSummary) {
 		return;
@@ -1010,7 +1025,11 @@ function renderStartupCandidateRows() {
 		tr.tabIndex = 0;
 		tr.setAttribute("role", "button");
 		tr.setAttribute("aria-label", `Open inventory entry for ${item.description}`);
-		applyRowStatusClass(tr, rowStatus);
+		if (rowStatus === "expired") {
+			tr.classList.add("row-expired");
+		} else if (rowStatus === "pullout") {
+			tr.classList.add("row-pullout");
+		}
 		tr.innerHTML = `
 			<td>
 				<div class="item-summary">
@@ -1145,17 +1164,23 @@ function bindComboBox(combo, inputEl, popupEl, hiddenEl) {
 	return { close: closePopup, renderPopup };
 }
 
-function populateLookupOptions(combo, entries, getLabel) {
+function populateCombo(combo, items, getLabel, config = {}) {
+	const { emptyMsg = "No items", placeholder = "Type to search", onEmpty = () => {} } = config;
 	combo.options = [];
 	combo.labelToId.clear();
 	combo.idToLabel.clear();
 	combo.highlightedIndex = -1;
 
-	for (const entry of entries) {
-		const label = getLabel(entry);
-		combo.options.push({ id: entry.id, label, lower: label.toLowerCase() });
-		combo.labelToId.set(label.toLowerCase(), entry.id);
-		combo.idToLabel.set(entry.id, label);
+	if (!items.length) {
+		onEmpty();
+		return;
+	}
+
+	for (const item of items) {
+		const label = getLabel(item);
+		combo.options.push({ id: item.id, label, lower: label.toLowerCase() });
+		combo.labelToId.set(label.toLowerCase(), item.id);
+		combo.idToLabel.set(item.id, label);
 	}
 }
 
@@ -1163,25 +1188,23 @@ function renderItemVendorOptions() {
 	const previous = refs.itemVendor.value;
 	refs.itemVendorPopup.innerHTML = "";
 
-	if (!state.vendors.length) {
-		refs.itemVendorInput.value = "";
-		refs.itemVendorInput.placeholder = "Add a vendor first";
-		refs.itemVendorInput.disabled = true;
-		refs.itemVendor.value = "";
-		closeItemVendorPopup();
-		return;
+	populateCombo(itemVendorLookup, state.vendors, (v) => v.name, {
+		placeholder: "Type vendor name",
+		onEmpty: () => {
+			refs.itemVendorInput.value = "";
+			refs.itemVendorInput.placeholder = "Add a vendor first";
+			refs.itemVendorInput.disabled = true;
+			refs.itemVendor.value = "";
+			closeItemVendorPopup();
+		}
+	});
+
+	if (state.vendors.length) {
+		refs.itemVendorInput.disabled = false;
+		refs.itemVendorInput.placeholder = "Type vendor name";
+		refs.itemVendor.value = previous && state.vendors.some((entry) => entry.id === previous) ? previous : "";
+		refs.itemVendorInput.value = refs.itemVendor.value ? itemVendorLookup.idToLabel.get(refs.itemVendor.value) || "" : "";
 	}
-
-	refs.itemVendorInput.disabled = false;
-	refs.itemVendorInput.placeholder = "Type vendor name";
-	populateLookupOptions(itemVendorLookup, state.vendors, (vendor) => vendor.name);
-
-	refs.itemVendor.value = previous && state.vendors.some((entry) => entry.id === previous)
-		? previous
-		: "";
-	refs.itemVendorInput.value = refs.itemVendor.value
-		? itemVendorLookup.idToLabel.get(refs.itemVendor.value) || ""
-		: "";
 	closeItemVendorPopup();
 }
 
@@ -1190,61 +1213,82 @@ function renderInventoryItemOptions() {
 	const vendorMap = createMapById(state.vendors);
 	refs.inventoryItemPopup.innerHTML = "";
 
-	if (!state.items.length) {
-		refs.inventoryItemInput.value = "";
-		refs.inventoryItemInput.placeholder = "Add an item first";
-		refs.inventoryItemInput.disabled = true;
-		refs.inventoryItem.value = "";
-		closeInventoryPopup();
-		refs.newInventoryBtn.disabled = true;
-		closeInventoryModal();
-		return;
-	}
-
-	refs.inventoryItemInput.disabled = false;
-	refs.inventoryItemInput.placeholder = "Type SKU or description";
-	refs.newInventoryBtn.disabled = false;
-	populateLookupOptions(inventoryCombo, state.items, (item) => {
+	populateCombo(inventoryCombo, state.items, (item) => {
 		const vendor = vendorMap.get(item.vendorId);
 		return `${item.sku} - ${item.description} (${vendor ? vendor.name : "No vendor"})`;
+	}, {
+		onEmpty: () => {
+			refs.inventoryItemInput.value = "";
+			refs.inventoryItemInput.placeholder = "Add an item first";
+			refs.inventoryItemInput.disabled = true;
+			refs.inventoryItem.value = "";
+			closeInventoryPopup();
+			refs.newInventoryBtn.disabled = true;
+			closeInventoryModal();
+		}
 	});
 
-	refs.inventoryItem.value = previous && state.items.some((entry) => entry.id === previous)
-		? previous
-		: "";
-	refs.inventoryItemInput.value = refs.inventoryItem.value
-		? inventoryCombo.idToLabel.get(refs.inventoryItem.value) || ""
-		: "";
+	if (state.items.length) {
+		refs.inventoryItemInput.disabled = false;
+		refs.inventoryItemInput.placeholder = "Type SKU or description";
+		refs.newInventoryBtn.disabled = false;
+		refs.inventoryItem.value = previous && state.items.some((entry) => entry.id === previous) ? previous : "";
+		refs.inventoryItemInput.value = refs.inventoryItem.value ? inventoryCombo.idToLabel.get(refs.inventoryItem.value) || "" : "";
+	}
 	closeInventoryPopup();
 }
 
 function openInventoryModal() {
-	openModal(refs.inventoryModal);
+	refs.inventoryModal.hidden = false;
+	document.body.classList.add("modal-open");
 }
 
 function closeInventoryModal() {
-	closeModal(refs.inventoryModal);
+	refs.inventoryModal.hidden = true;
+	if (refs.messageModal.hidden && refs.confirmModal.hidden) {
+		document.body.classList.remove("modal-open");
+	}
 }
 
 function showIssueModal(message, title = "Unable to Save") {
 	refs.messageModalTitle.textContent = title;
 	refs.messageModalText.textContent = message;
-	openModal(refs.messageModal);
+	refs.messageModal.hidden = false;
+	document.body.classList.add("modal-open");
 }
 
 function closeMessageModal() {
-	closeModal(refs.messageModal);
+	refs.messageModal.hidden = true;
+	if (refs.inventoryModal.hidden && refs.confirmModal.hidden) {
+		document.body.classList.remove("modal-open");
+	}
 }
 
 function showDeleteConfirm(message, onConfirm) {
+	showConfirmModal(message, onConfirm, {
+		title: "Confirm Delete",
+		confirmLabel: "Delete"
+	});
+}
+
+function showConfirmModal(message, onConfirm, options = {}) {
+	const { title = "Confirm Action", confirmLabel = "Confirm" } = options;
 	pendingDeleteAction = typeof onConfirm === "function" ? onConfirm : null;
+	if (refs.confirmModalTitle) {
+		refs.confirmModalTitle.textContent = title;
+	}
 	refs.confirmModalText.textContent = message;
-	openModal(refs.confirmModal);
+	refs.confirmDeleteBtn.textContent = confirmLabel;
+	refs.confirmModal.hidden = false;
+	document.body.classList.add("modal-open");
 }
 
 function closeConfirmModal() {
+	refs.confirmModal.hidden = true;
 	pendingDeleteAction = null;
-	closeModal(refs.confirmModal);
+	if (refs.inventoryModal.hidden && refs.messageModal.hidden) {
+		document.body.classList.remove("modal-open");
+	}
 }
 
 function confirmDelete() {
@@ -1418,42 +1462,24 @@ function collectDashboardEntries() {
 	}
 
 	entries.sort((a, b) => {
-		const pulloutA = monthYearSortValue(a.pulloutDate);
-		const pulloutB = monthYearSortValue(b.pulloutDate);
-		if (pulloutA !== pulloutB) {
-			return pulloutA - pulloutB;
-		}
-
-		const vendorCompare = a.vendorName.localeCompare(b.vendorName, undefined, { sensitivity: "base" });
-		if (vendorCompare !== 0) {
-			return vendorCompare;
-		}
-
-		return a.item.description.localeCompare(b.item.description, undefined, { sensitivity: "base" });
+		const cmp = monthYearSortValue(a.pulloutDate) - monthYearSortValue(b.pulloutDate);
+		if (cmp !== 0) return cmp;
+		const vendorCmp = a.vendorName.localeCompare(b.vendorName, undefined, { sensitivity: "base" });
+		return vendorCmp !== 0 ? vendorCmp : a.item.description.localeCompare(b.item.description, undefined, { sensitivity: "base" });
 	});
 
 	return entries;
 }
 
 function collectPulloutCandidates() {
-	return collectDashboardEntries().filter((entry) => entry.rowStatus !== "normal");
+	return collectDashboardEntries().filter((entry) => entry.rowStatus !== "normal" && !entry.row.completed);
 }
 
 function monthYearSortValue(value) {
-	const raw = String(value || "").trim();
-	if (!raw) {
-		return Number.POSITIVE_INFINITY;
-	}
-
-	const [monthPart, yearPart] = raw.split("/");
-	const month = Number(monthPart);
-	const year = Number(yearPart);
-	if (!Number.isInteger(month) || !Number.isInteger(year) || month < 1 || month > 12) {
-		return Number.POSITIVE_INFINITY;
-	}
-
-	const fullYear = year < 100 ? 2000 + year : year;
-	return (fullYear * 100) + month;
+	const key = monthYearKey(value);
+	if (!key) return Number.POSITIVE_INFINITY;
+	const [year, month] = key.split("-");
+	return Number(year) * 100 + Number(month);
 }
 
 function createMapById(entries) {
@@ -1735,19 +1761,12 @@ function resolvePulloutDate(row, item) {
 
 function normalizeMonthYear(value) {
 	const raw = String(value || "").trim();
-	if (!raw) {
-		return "";
-	}
-
+	if (!raw || !raw.includes("/")) return "";
 	const [month, year] = raw.split("/");
-	const monthNumber = Number(month);
-	const yearNumber = Number(year);
-	if (!Number.isInteger(monthNumber) || !Number.isInteger(yearNumber) || monthNumber < 1 || monthNumber > 12) {
-		return "";
-	}
-
-	const twoDigitYear = yearNumber % 100;
-	return `${String(monthNumber).padStart(2, "0")}/${String(twoDigitYear).padStart(2, "0")}`;
+	const m = Number(month), y = Number(year);
+	return (Number.isInteger(m) && Number.isInteger(y) && m >= 1 && m <= 12)
+		? `${String(m).padStart(2, "0")}/${String(y % 100).padStart(2, "0")}`
+		: "";
 }
 
 function monthYearToDateString(value) {
@@ -1769,55 +1788,31 @@ function monthYearToDateString(value) {
 
 function monthInputToDateString(value) {
 	const raw = String(value || "").trim();
-	if (!raw) {
-		return "";
-	}
-
 	const [year, month] = raw.split("-");
-	const yearNumber = Number(year);
-	const monthNumber = Number(month);
-	if (!Number.isInteger(yearNumber) || !Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) {
-		return "";
-	}
-
-	return `${yearNumber}-${String(monthNumber).padStart(2, "0")}-01`;
+	const y = Number(year), m = Number(month);
+	return (Number.isInteger(y) && Number.isInteger(m) && m >= 1 && m <= 12)
+		? `${y}-${String(m).padStart(2, "0")}-01`
+		: "";
 }
 
 function dateStringToMonthInput(value) {
 	const raw = String(value || "").trim();
-	if (!raw) {
-		return "";
-	}
-
 	const parts = raw.split("-");
-	if (parts.length < 2) {
-		return "";
-	}
-
-	const year = Number(parts[0]);
-	const month = Number(parts[1]);
-	if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
-		return "";
-	}
-
-	return `${year}-${String(month).padStart(2, "0")}`;
+	const y = Number(parts[0]), m = Number(parts[1]);
+	return (parts.length >= 2 && Number.isInteger(y) && Number.isInteger(m) && m >= 1 && m <= 12)
+		? `${y}-${String(m).padStart(2, "0")}`
+		: "";
 }
 
 function monthYearToMonthInput(value) {
 	const raw = String(value || "").trim();
-	if (!raw) {
-		return "";
-	}
-
 	const [month, year] = raw.split("/");
-	const monthNumber = Number(month);
-	const yearNumber = Number(year);
-	if (!Number.isInteger(monthNumber) || !Number.isInteger(yearNumber) || monthNumber < 1 || monthNumber > 12) {
-		return "";
+	const m = Number(month), y = Number(year);
+	if (Number.isInteger(m) && Number.isInteger(y) && m >= 1 && m <= 12) {
+		const fullYear = y < 100 ? (y < 50 ? 2000 + y : 1900 + y) : y;
+		return `${fullYear}-${String(m).padStart(2, "0")}`;
 	}
-
-	const fullYear = yearNumber < 100 ? (yearNumber < 50 ? 2000 + yearNumber : 1900 + yearNumber) : yearNumber;
-	return `${fullYear}-${String(monthNumber).padStart(2, "0")}`;
+	return "";
 }
 
 function monthYearToMonthYearFormat(value) {
@@ -1868,23 +1863,15 @@ function getInventoryRowStatus(expiryDate, pulloutDate) {
 	const expiry = new Date(expiryDate);
 	if (!Number.isNaN(expiry.valueOf())) {
 		expiry.setHours(0, 0, 0, 0);
-		if (expiry < today) {
-			return "expired";
-		}
+		if (expiry < today) return "expired";
 	}
 
 	const pulloutKey = monthYearKey(pulloutDate);
-	if (!pulloutKey) {
-		return "normal";
-	}
+	if (!pulloutKey) return "normal";
 
 	const currentMonth = String(today.getMonth() + 1).padStart(2, "0");
 	const currentKey = `${today.getFullYear()}-${currentMonth}`;
-	if (pulloutKey <= currentKey) {
-		return "pullout";
-	}
-
-	return "normal";
+	return pulloutKey <= currentKey ? "pullout" : "normal";
 }
 
 function monthYearKey(monthYear) {

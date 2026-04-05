@@ -587,16 +587,19 @@ th {
 }
 
 #dashboardRows tr.row-focus-target td {
-	box-shadow: inset 0 0 0 2px rgba(204, 42, 42, 0.45);
-	animation: rowFocusPulse 1.2s ease-out;
+	box-shadow: inset 0 0 0 3px rgba(204, 42, 42, 0.6) !important;
+	animation: rowFocusPulse 1.3s ease-out;
 }
 
 @keyframes rowFocusPulse {
 	0% {
-		background: #ffecec;
+		background: #ffcccc !important;
+	}
+	50% {
+		background: #ffcccc !important;
 	}
 	100% {
-		background: transparent;
+		background: inherit;
 	}
 }
 
@@ -667,6 +670,54 @@ th {
 	width: 14px;
 	height: 14px;
 	fill: currentColor;
+}
+
+#dashboardRows .actions {
+	white-space: normal;
+	text-align: center;
+	min-width: 112px;
+}
+
+#dashboardRows .actions .dashboard-actions-top {
+	display: flex;
+	justify-content: center;
+	gap: 0.35rem;
+	margin-bottom: 0.35rem;
+}
+
+#dashboardRows .actions .dashboard-actions-top .icon-btn {
+	margin-right: 0;
+	margin-bottom: 0;
+}
+
+#dashboardRows .actions .dashboard-complete-btn {
+	width: 100%;
+	margin: 0;
+	padding: 0.34rem 0.45rem;
+	font-size: 0.72rem;
+	line-height: 1.15;
+	border-radius: 8px;
+	background: #fff4f4;
+	border: 1px solid #efcaca;
+	color: #7b2f2f;
+	cursor: pointer;
+	transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+#dashboardRows .actions .dashboard-complete-btn:hover {
+	background: #ffe8e8;
+	border-color: #e9b6b6;
+}
+
+#dashboardRows .actions .dashboard-complete-btn.is-completed {
+	background: #1f9d5a;
+	border-color: #1a854c;
+	color: #ffffff;
+}
+
+#dashboardRows .actions .dashboard-complete-btn.is-completed:hover {
+	background: #1b8b4f;
+	border-color: #177545;
 }
 
 .dashboard-inline-expiry,
