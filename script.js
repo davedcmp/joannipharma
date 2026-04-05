@@ -49,6 +49,7 @@ const refs = {
 	closeItemSectionBtn: document.getElementById("closeItemSectionBtn"),
 	openVendorBtn: document.getElementById("openVendorBtn"),
 	openItemBtn: document.getElementById("openItemBtn"),
+	openEndUserGuideBtn: document.getElementById("openEndUserGuideBtn"),
 	exportCsvBtn: document.getElementById("exportCsvBtn"),
 	importCsvBtn: document.getElementById("importCsvBtn"),
 	csvFileInput: document.getElementById("csvFileInput"),
@@ -151,6 +152,11 @@ function bindEvents() {
 		showSection("item");
 		closeMainMenu();
 	});
+	if (refs.openEndUserGuideBtn) {
+		refs.openEndUserGuideBtn.addEventListener("click", () => {
+			window.location.href = "docs/end-user-guide.html";
+		});
+	}
 
 	refs.vendorForm.addEventListener("submit", onSaveVendor);
 	refs.cancelVendorBtn.addEventListener("click", resetVendorForm);
@@ -288,6 +294,15 @@ function setMenuSectionExpanded(section, shouldOpen, options = {}) {
 	const { immediate = false } = options;
 	if (!section) {
 		return;
+	}
+
+	if (shouldOpen && refs.menuPanel) {
+		for (const otherSection of refs.menuPanel.querySelectorAll("details")) {
+			if (otherSection === section) {
+				continue;
+			}
+			setMenuSectionExpanded(otherSection, false, { immediate });
+		}
 	}
 
 	const content = section.querySelector(".menu-group-content");
@@ -537,7 +552,27 @@ function onDashboardTableEdit(event) {
 	if (!field || !id) {
 		return;
 	}
+
+	if (field === "comment" && event.target.classList.contains("dashboard-inline-comment")) {
+		autosizeTextarea(event.target);
+	}
+
 	stageInventoryInlineField(id, field, event.target.value);
+}
+
+function autosizeTextarea(textarea) {
+	if (!(textarea instanceof HTMLTextAreaElement)) {
+		return;
+	}
+
+	textarea.style.height = "auto";
+	textarea.style.height = `${textarea.scrollHeight}px`;
+}
+
+function autosizeDashboardCommentInputs() {
+	refs.dashboardRows.querySelectorAll(".dashboard-inline-comment").forEach((textarea) => {
+		autosizeTextarea(textarea);
+	});
 }
 
 function onSaveVendor(event) {
@@ -569,6 +604,10 @@ function editVendor(id) {
 	showSection("vendor");
 	refs.vendorId.value = vendor.id;
 	refs.vendorName.value = vendor.name;
+	requestAnimationFrame(() => {
+		refs.vendorName.focus();
+		refs.vendorName.select();
+	});
 }
 
 function deleteVendor(id) {
@@ -651,6 +690,10 @@ function editItem(id) {
 	refs.itemPolicyType.value = item.returnPolicyType;
 	refs.itemPolicyMonths.value = String(item.returnPolicyMonths || 0);
 	syncPolicyField();
+	requestAnimationFrame(() => {
+		refs.itemSku.focus();
+		refs.itemSku.select();
+	});
 }
 
 function deleteItem(id) {
@@ -690,10 +733,11 @@ function onSaveInventory(event) {
 	}
 
 	const id = refs.inventoryId.value || uid();
+	const quantityInput = refs.inventoryQty.value;
 	const payload = {
 		id,
 		itemId: refs.inventoryItem.value,
-		quantity: Number(refs.inventoryQty.value || 0),
+		quantity: quantityInput === "" ? "" : Number(quantityInput),
 		expiryDate: monthInputToDateString(refs.inventoryExpiry.value),
 		remarks: refs.inventoryRemarks.value,
 		comment: refs.inventoryComment.value.trim()
@@ -704,8 +748,8 @@ function onSaveInventory(event) {
 		return;
 	}
 
-	if (payload.quantity <= 0) {
-		showIssueModal("Quantity must be greater than 0.");
+	if (payload.quantity !== "" && (!Number.isFinite(payload.quantity) || payload.quantity < 0)) {
+		showIssueModal("Quantity must be 0 or higher.");
 		return;
 	}
 
@@ -734,7 +778,7 @@ function editInventory(id) {
 	refs.inventoryItem.value = row.itemId;
 	refs.inventoryItemInput.value = inventoryCombo.idToLabel.get(row.itemId) || "";
 	closeInventoryPopup();
-	refs.inventoryQty.value = String(row.quantity);
+	refs.inventoryQty.value = row.quantity === "" || row.quantity == null ? "" : String(row.quantity);
 	refs.inventoryExpiry.value = dateStringToMonthInput(row.expiryDate);
 	refs.inventoryRemarks.value = REMARK_OPTIONS.includes(row.remarks) ? row.remarks : "";
 	refs.inventoryComment.value = row.comment || "";
@@ -856,8 +900,47 @@ function toggleInventoryCompleted(id) {
 	showConfirmModal(confirmMessage, () => {
 		row.completed = !row.completed;
 		persist("inventory");
+		updateDashboardRowState(id);
 		updateDashboardRowActionButtons(id, false);
 	});
+}
+
+function applyDashboardRowStateClasses(rowElement, row, rowStatus) {
+	if (!rowElement || !row) {
+		return;
+	}
+
+	rowElement.classList.remove("row-completed", "row-expired", "row-pullout");
+
+	if (row.completed) {
+		rowElement.classList.add("row-completed");
+		return;
+	}
+
+	if (rowStatus === "expired") {
+		rowElement.classList.add("row-expired");
+		return;
+	}
+
+	if (rowStatus === "pullout") {
+		rowElement.classList.add("row-pullout");
+	}
+}
+
+function updateDashboardRowState(id) {
+	const rowElement = refs.dashboardRows.querySelector(`tr[data-dashboard-row-id="${id}"]`);
+	const row = state.inventory.find((entry) => entry.id === id);
+	if (!rowElement || !row) {
+		return;
+	}
+
+	const item = state.items.find((entry) => entry.id === row.itemId);
+	const pulloutDate = resolvePulloutDate(row, item);
+	const rowStatus = getInventoryRowStatus(row.expiryDate, pulloutDate);
+	applyDashboardRowStateClasses(rowElement, row, rowStatus);
+	if (row.completed) {
+		rowElement.classList.remove("row-focus-target");
+	}
 }
 
 function saveInventoryInlineEdits(id) {
@@ -958,11 +1041,7 @@ function renderDashboardRows() {
 		const isInlineEditing = Boolean(draft);
 		const tr = document.createElement("tr");
 		tr.dataset.dashboardRowId = row.id;
-		if (!row.completed && rowStatus === "expired") {
-			tr.classList.add("row-expired");
-		} else if (!row.completed && rowStatus === "pullout") {
-			tr.classList.add("row-pullout");
-		}
+		applyDashboardRowStateClasses(tr, row, rowStatus);
 		tr.innerHTML = `
 			<td>${escapeHtml(item.sku)}</td>
 			<td>
@@ -971,7 +1050,7 @@ function renderDashboardRows() {
 					<div class="item-summary-sub">${escapeHtml(vendorName)}</div>
 				</div>
 			</td>
-			<td>${row.quantity}</td>
+			<td>${formatQuantityValue(row.quantity)}</td>
 			<td>${formatDate(row.expiryDate)}</td>
 			<td>
 				<div class="policy-summary">
@@ -1003,6 +1082,8 @@ function renderDashboardRows() {
 		tr.innerHTML = `<td colspan="9" class="empty-state-cell">No dashboard rows.</td>`;
 		refs.dashboardRows.appendChild(tr);
 	}
+
+	autosizeDashboardCommentInputs();
 }
 
 function renderStartupCandidateRows() {
@@ -1309,7 +1390,8 @@ function exportDashboardExcel() {
 		"Return Policy",
 		"Pull-out Date",
 		"Remarks",
-		"Comment"
+		"Comment",
+		"Completed"
 	];
 
 	const dataRows = [];
@@ -1320,12 +1402,13 @@ function exportDashboardExcel() {
 			item.sku,
 			item.description,
 			vendorName,
-			row.quantity ?? 0,
+			exportQuantityValue(row.quantity),
 			row.expiryDate || "",
 			policyText,
 			formatPulloutDate(pulloutDate),
 			row.remarks || "",
-			row.comment || ""
+			row.comment || "",
+			row.completed ? "Yes" : "No"
 		]);
 	}
 
@@ -1363,7 +1446,8 @@ function exportAllCsv() {
 		"expiry_date",
 		"pullout_date",
 		"remarks",
-		"comment"
+		"comment",
+		"completed"
 	];
 
 	const rows = [
@@ -1371,6 +1455,7 @@ function exportAllCsv() {
 			"vendor",
 			entry.id,
 			entry.name,
+			"",
 			"",
 			"",
 			"",
@@ -1397,18 +1482,16 @@ function exportAllCsv() {
 			"",
 			"",
 			"",
+			"",
 			""
 		]),
-		...state.inventory.map((entry) => buildInventoryCsvRow(entry, itemMap))
+		...state.inventory.map((entry) => buildInventoryCsvRow(entry))
 	];
 
 	downloadCsv("joanni_pharma_export.csv", header, rows);
 }
 
-function buildInventoryCsvRow(entry, itemMap) {
-	const item = itemMap.get(entry.itemId);
-	const pulloutDate = resolvePulloutDate(entry, item);
-
+function buildInventoryCsvRow(entry) {
 	return [
 			"inventory",
 			entry.id,
@@ -1419,11 +1502,12 @@ function buildInventoryCsvRow(entry, itemMap) {
 			"",
 			"",
 			entry.itemId,
-			String(entry.quantity || 0),
+			exportQuantityValue(entry.quantity),
 			entry.expiryDate || "",
-			pulloutDate,
+			"",
 			entry.remarks || "",
-			entry.comment || ""
+			entry.comment || "",
+			exportCompletedValue(entry.completed)
 	];
 }
 
@@ -1527,7 +1611,7 @@ function importCsvText(text) {
 		return;
 	}
 
-	if (matchesHeader(header, [
+	const fullExportHeader = [
 		"record_type",
 		"id",
 		"name",
@@ -1542,7 +1626,11 @@ function importCsvText(text) {
 		"pullout_date",
 		"remarks",
 		"comment"
-	])) {
+	];
+	const fullExportHeaderWithCompleted = [...fullExportHeader, "completed"];
+
+	if (matchesHeader(header, fullExportHeader) || matchesHeader(header, fullExportHeaderWithCompleted)) {
+		const hasCompletedColumn = matchesHeader(header, fullExportHeaderWithCompleted);
 		state.vendors = dataRows
 			.filter((row) => (row[0] || "").trim().toLowerCase() === "vendor")
 			.map((row) => ({
@@ -1568,11 +1656,12 @@ function importCsvText(text) {
 			.map((row) => ({
 				id: row[1] || uid(),
 				itemId: (row[8] || "").trim(),
-				quantity: Number(row[9] || 0),
+				quantity: parseQuantityValue(row[9]),
 				expiryDate: (row[10] || "").trim(),
 				pulloutDate: normalizeMonthYear((row[11] || "").trim()),
 				remarks: REMARK_OPTIONS.includes(row[12]) ? row[12] : "",
-				comment: row[13] || ""
+				comment: row[13] || "",
+				completed: hasCompletedColumn ? parseCompletedValue(row[14]) : false
 			}))
 			.filter((entry) => entry.itemId);
 
@@ -1595,15 +1684,20 @@ function importCsvText(text) {
 		return;
 	}
 
-	if (matchesHeader(header, ["id", "item_id", "quantity", "expiry_date", "pullout_date", "remarks", "comment"])) {
+	const inventoryOnlyHeader = ["id", "item_id", "quantity", "expiry_date", "pullout_date", "remarks", "comment"];
+	const inventoryOnlyHeaderWithCompleted = [...inventoryOnlyHeader, "completed"];
+
+	if (matchesHeader(header, inventoryOnlyHeader) || matchesHeader(header, inventoryOnlyHeaderWithCompleted)) {
+		const hasCompletedColumn = matchesHeader(header, inventoryOnlyHeaderWithCompleted);
 		state.inventory = dataRows.map((row) => ({
 			id: row[0] || uid(),
 			itemId: (row[1] || "").trim(),
-			quantity: Number(row[2] || 0),
+			quantity: parseQuantityValue(row[2]),
 			expiryDate: (row[3] || "").trim(),
 			pulloutDate: normalizeMonthYear((row[4] || "").trim()),
 			remarks: REMARK_OPTIONS.includes(row[5]) ? row[5] : "",
-			comment: row[6] || ""
+			comment: row[6] || "",
+			completed: hasCompletedColumn ? parseCompletedValue(row[7]) : false
 		})).filter((entry) => entry.itemId);
 		persist("inventory");
 		return;
@@ -1682,6 +1776,33 @@ function toCsvValue(value) {
 		return `"${safe.replaceAll('"', '""')}"`;
 	}
 	return safe;
+}
+
+function parseQuantityValue(value) {
+	const raw = String(value ?? "").trim();
+	if (raw === "") {
+		return "";
+	}
+
+	const quantity = Number(raw);
+	return Number.isFinite(quantity) ? quantity : "";
+}
+
+function formatQuantityValue(value) {
+	return value === "" || value == null ? "" : String(value);
+}
+
+function exportQuantityValue(value) {
+	return value === "" || value == null ? "" : value;
+}
+
+function parseCompletedValue(value) {
+	const raw = String(value ?? "").trim().toLowerCase();
+	return raw === "true" || raw === "1" || raw === "yes";
+}
+
+function exportCompletedValue(value) {
+	return value ? "true" : "false";
 }
 
 function normalizeHeader(value) {

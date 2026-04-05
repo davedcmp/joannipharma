@@ -358,6 +358,10 @@ details.is-open .menu-group-content {
 	background: #fff6e5;
 }
 
+.startup-screen-table tr.row-completed td {
+	background: #e7f6ec;
+}
+
 .startup-date-pair {
 	line-height: 1.2;
 	white-space: nowrap;
@@ -586,6 +590,10 @@ th {
 	background: #fff3df;
 }
 
+#dashboardRows tr.row-completed td {
+	background: #e7f6ec;
+}
+
 #dashboardRows tr.row-focus-target td {
 	box-shadow: inset 0 0 0 3px rgba(204, 42, 42, 0.6) !important;
 	animation: rowFocusPulse 1.3s ease-out;
@@ -751,13 +759,14 @@ th {
 
 .dashboard-inline-comment {
 	min-width: 140px;
-	height: 31px;
 	min-height: 31px;
-	resize: none;
-	padding-top: 0;
-	padding-bottom: 0;
-	line-height: 31px;
-	overflow: hidden;
+	height: auto;
+	resize: vertical;
+	padding-top: 0.35rem;
+	padding-bottom: 0.35rem;
+	line-height: 1.35;
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
 }
 
 .danger {

@@ -149,7 +149,7 @@
     <section class="cover">
       <h1>Joanni Pharma End-User Guide</h1>
       <p>This document explains how to use all features of the Joanni Pharma web app for day-to-day operations.</p>
-      <p class="meta">Audience: End users | Scope: Dashboard, records, data import/export, reports, editing, and deletion workflows</p>
+      <p class="meta">Audience: End users | Scope: Dashboard, records, navigation, data import/export, reports, editing, and deletion workflows</p>
     </section>
 
     <section class="toc">
@@ -186,9 +186,11 @@
       <div class="card">
         <ol class="steps">
           <li>Click the menu icon in the header to open the Main Menu.</li>
+          <li>Only one submenu can stay expanded at a time (accordion behavior).</li>
           <li>Expand <strong>Records</strong> to open Vendors or Items maintenance.</li>
           <li>Expand <strong>Data</strong> to Export/Import CSV.</li>
           <li>Expand <strong>Reports</strong> to export Dashboard data to Excel.</li>
+          <li>Expand <strong>Guide</strong> to open this End User Guide page.</li>
           <li>Close the menu by clicking outside, pressing <strong>Esc</strong>, or toggling menu icon.</li>
         </ol>
       </div>
@@ -203,7 +205,7 @@
           <li>Use the month filter at the top-left of the toolbar to narrow rows by pull-out date.</li>
           <li>Click <strong>Add Line</strong> to create a new inventory record.</li>
           <li>Review table columns: SKU, Description/Vendor, Qty, Expiry, Return Policy, Pull-out, Remarks, Comment, Actions.</li>
-          <li>Rows may highlight based on status (for pull-out or expired conditions).</li>
+          <li>Rows may highlight based on status (for pull-out, expired, or completed conditions).</li>
         </ol>
       </div>
       <div class="shot"><img src="images/dashboard-overview.svg" alt="Dashboard overview screenshot"></div>
@@ -216,10 +218,11 @@
         <ol class="steps">
           <li>Click <strong>Add Line</strong> on the Dashboard.</li>
           <li>In the Line Entry modal, select an item using SKU/description autocomplete.</li>
-          <li>Enter Quantity and Expiry Date.</li>
+          <li>Enter Quantity (optional) and Expiry Date.</li>
           <li>Set Remarks and optional Comment.</li>
           <li>Click <strong>Save</strong> to add the row, or <strong>Cancel</strong> to discard.</li>
         </ol>
+        <div class="note">Pull-out date is auto-calculated from Expiry Date and Item Return Policy.</div>
       </div>
       <div class="shot"><img src="images/add-line-modal.svg" alt="Line Entry modal screenshot"></div>
       <p class="caption">Figure: Add Line modal with required fields.</p>
@@ -230,8 +233,10 @@
       <div class="card">
         <ol class="steps">
           <li>Edit <strong>Remarks</strong> and <strong>Comment</strong> directly in each row.</li>
+          <li>Comment fields wrap and auto-grow while typing for easier long-note editing.</li>
           <li>After editing, row action buttons change to <strong>Save</strong> and <strong>Cancel</strong>.</li>
           <li>Click Save to commit or Cancel to revert inline changes.</li>
+          <li>Use <strong>Mark Complete</strong> to toggle completion status; row fill updates immediately.</li>
         </ol>
       </div>
       <div class="shot"><img src="images/inline-editing.svg" alt="Inline editing screenshot"></div>
@@ -244,6 +249,7 @@
         <ol class="steps">
           <li>Open <strong>Main Menu > Records > Vendors</strong>.</li>
           <li>Add or edit vendor name in the form.</li>
+          <li>When editing a vendor, cursor focus moves to the Name field automatically.</li>
           <li>Use table action buttons to edit or delete an existing vendor.</li>
           <li>If a vendor is in use by items, deletion is blocked with a notification modal.</li>
         </ol>
@@ -258,6 +264,7 @@
         <ol class="steps">
           <li>Open <strong>Main Menu > Records > Items</strong>.</li>
           <li>Enter SKU, Description, and select Vendor via autocomplete.</li>
+          <li>When editing an item, cursor focus moves to the SKU field automatically.</li>
           <li>Choose Return Policy:
             <ul class="checklist">
               <li><strong>By number of months</strong></li>
@@ -280,6 +287,7 @@
           <li>Watch for modal notification after import (success or failure).</li>
           <li>For best results, import CSV files that were exported from this app.</li>
         </ol>
+        <div class="note">Exported CSV includes completion status and leaves pull-out date blank so it is recalculated from expiry date and policy during use/import.</div>
       </div>
       <div class="shot"><img src="images/csv-import-export.svg" alt="CSV import and export screenshot"></div>
       <p class="caption">Figure: Data section actions for backup and restore.</p>
@@ -291,6 +299,7 @@
         <ol class="steps">
           <li>Open <strong>Main Menu > Reports > Export to Excel</strong>.</li>
           <li>The file contains Dashboard records and respects your current filter.</li>
+          <li>The export includes a <strong>Completed</strong> column.</li>
           <li>Save the generated file for reporting or sharing.</li>
         </ol>
       </div>
@@ -316,7 +325,7 @@
         <p>This record is still referenced elsewhere. Remove dependent records first, then retry.</p>
 
         <h3>Import CSV failed</h3>
-        <p>Use a CSV exported by this app and verify file contents were not manually corrupted.</p>
+        <p>Use a CSV exported by this app and verify header/column order is unchanged.</p>
 
         <h3>No rows shown on dashboard</h3>
         <p>Clear or change the pull-out month filter and confirm inventory records exist.</p>
@@ -324,7 +333,7 @@
     </section>
 
     <div class="footer">
-      Document: Joanni Pharma End-User Guide | Version: 1.0 | Generated for end-user operations
+      Document: Joanni Pharma End-User Guide | Version: 1.1 | Generated for end-user operations
     </div>
   </main>
 </body>
