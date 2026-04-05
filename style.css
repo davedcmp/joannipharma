@@ -594,6 +594,18 @@ th {
 	background: #e7f6ec;
 }
 
+#dashboardSection table th:nth-child(7),
+#dashboardSection table td:nth-child(7) {
+	width: 130px;
+	min-width: 130px;
+}
+
+#dashboardSection table th:nth-child(8),
+#dashboardSection table td:nth-child(8) {
+	width: 280px;
+	min-width: 280px;
+}
+
 #dashboardRows tr.row-focus-target td {
 	box-shadow: inset 0 0 0 3px rgba(204, 42, 42, 0.6) !important;
 	animation: rowFocusPulse 1.3s ease-out;
@@ -751,14 +763,14 @@ th {
 }
 
 .dashboard-inline-select {
-	min-width: 110px;
+	min-width: 90px;
 	height: 31px;
 	min-height: 31px;
 	line-height: 1.2;
 }
 
 .dashboard-inline-comment {
-	min-width: 140px;
+	min-width: 240px;
 	min-height: 31px;
 	height: auto;
 	resize: vertical;

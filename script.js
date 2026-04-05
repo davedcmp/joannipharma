@@ -6,6 +6,56 @@ const STORAGE_KEYS = {
 
 const REMARK_OPTIONS = ["Yes, Intact", "Yes, Loose", "No, Loose"];
 
+const CSV_HEADER_VENDORS = ["id", "name"];
+const CSV_HEADER_ITEMS = ["id", "sku", "description", "vendor_id", "return_policy_type", "return_policy_months"];
+const CSV_HEADER_FULL_WITH_PULL = [
+	"record_type",
+	"id",
+	"name",
+	"sku",
+	"description",
+	"vendor_id",
+	"return_policy_type",
+	"return_policy_months",
+	"item_id",
+	"quantity",
+	"expiry_date",
+	"pullout_date",
+	"remarks",
+	"comment"
+];
+const CSV_HEADER_FULL_NO_PULL = [
+	"record_type",
+	"id",
+	"name",
+	"sku",
+	"description",
+	"vendor_id",
+	"return_policy_type",
+	"return_policy_months",
+	"item_id",
+	"quantity",
+	"expiry_date",
+	"remarks",
+	"comment"
+];
+const CSV_HEADER_INVENTORY_WITH_PULL = ["id", "item_id", "quantity", "expiry_date", "pullout_date", "remarks", "comment"];
+const CSV_HEADER_INVENTORY_NO_PULL = ["id", "item_id", "quantity", "expiry_date", "remarks", "comment"];
+
+const CSV_FULL_VARIANTS = [
+	{ header: CSV_HEADER_FULL_WITH_PULL, hasPullout: true, hasCompleted: false },
+	{ header: [...CSV_HEADER_FULL_WITH_PULL, "completed"], hasPullout: true, hasCompleted: true },
+	{ header: CSV_HEADER_FULL_NO_PULL, hasPullout: false, hasCompleted: false },
+	{ header: [...CSV_HEADER_FULL_NO_PULL, "completed"], hasPullout: false, hasCompleted: true }
+];
+
+const CSV_INVENTORY_VARIANTS = [
+	{ header: CSV_HEADER_INVENTORY_WITH_PULL, hasPullout: true, hasCompleted: false },
+	{ header: [...CSV_HEADER_INVENTORY_WITH_PULL, "completed"], hasPullout: true, hasCompleted: true },
+	{ header: CSV_HEADER_INVENTORY_NO_PULL, hasPullout: false, hasCompleted: false },
+	{ header: [...CSV_HEADER_INVENTORY_NO_PULL, "completed"], hasPullout: false, hasCompleted: true }
+];
+
 const state = {
 	vendors: readStore(STORAGE_KEYS.vendors),
 	items: readStore(STORAGE_KEYS.items),
@@ -1431,7 +1481,6 @@ function exportDashboardExcel() {
 }
 
 function exportAllCsv() {
-	const itemMap = createMapById(state.items);
 	const header = [
 		"record_type",
 		"id",
@@ -1602,7 +1651,7 @@ function importCsvText(text) {
 	const header = rows[0].map(normalizeHeader);
 	const dataRows = rows.slice(1).filter((row) => row.some((cell) => String(cell).trim() !== ""));
 
-	if (matchesHeader(header, ["id", "name"])) {
+	if (matchesHeader(header, CSV_HEADER_VENDORS)) {
 		state.vendors = dataRows.map((row) => ({
 			id: row[0] || uid(),
 			name: (row[1] || "").trim()
@@ -1611,53 +1660,12 @@ function importCsvText(text) {
 		return;
 	}
 
-	const fullExportHeader = [
-		"record_type",
-		"id",
-		"name",
-		"sku",
-		"description",
-		"vendor_id",
-		"return_policy_type",
-		"return_policy_months",
-		"item_id",
-		"quantity",
-		"expiry_date",
-		"pullout_date",
-		"remarks",
-		"comment"
-	];
-	const fullExportHeaderNoPullout = [
-		"record_type",
-		"id",
-		"name",
-		"sku",
-		"description",
-		"vendor_id",
-		"return_policy_type",
-		"return_policy_months",
-		"item_id",
-		"quantity",
-		"expiry_date",
-		"remarks",
-		"comment"
-	];
-	const fullExportHeaderWithCompleted = [...fullExportHeader, "completed"];
-	const fullExportHeaderNoPulloutWithCompleted = [...fullExportHeaderNoPullout, "completed"];
-
-	if (
-		matchesHeader(header, fullExportHeader)
-		|| matchesHeader(header, fullExportHeaderWithCompleted)
-		|| matchesHeader(header, fullExportHeaderNoPullout)
-		|| matchesHeader(header, fullExportHeaderNoPulloutWithCompleted)
-	) {
-		const hasCompletedColumn = matchesHeader(header, fullExportHeaderWithCompleted);
-		const hasCompletedWithoutPullout = matchesHeader(header, fullExportHeaderNoPulloutWithCompleted);
-		const hasPulloutColumn = matchesHeader(header, fullExportHeader) || matchesHeader(header, fullExportHeaderWithCompleted);
-		const hasCompleted = hasCompletedColumn || hasCompletedWithoutPullout;
-		const remarksIndex = hasPulloutColumn ? 12 : 11;
-		const commentIndex = hasPulloutColumn ? 13 : 12;
-		const completedIndex = hasPulloutColumn ? 14 : 13;
+	const fullVariant = findHeaderVariant(header, CSV_FULL_VARIANTS);
+	if (fullVariant) {
+		const { hasPullout, hasCompleted } = fullVariant;
+		const remarksIndex = hasPullout ? 12 : 11;
+		const commentIndex = hasPullout ? 13 : 12;
+		const completedIndex = hasPullout ? 14 : 13;
 		state.vendors = dataRows
 			.filter((row) => (row[0] || "").trim().toLowerCase() === "vendor")
 			.map((row) => ({
@@ -1685,7 +1693,7 @@ function importCsvText(text) {
 				itemId: (row[8] || "").trim(),
 				quantity: parseQuantityValue(row[9]),
 				expiryDate: (row[10] || "").trim(),
-				pulloutDate: hasPulloutColumn ? normalizeMonthYear((row[11] || "").trim()) : "",
+				pulloutDate: hasPullout ? normalizeMonthYear((row[11] || "").trim()) : "",
 				remarks: REMARK_OPTIONS.includes(row[remarksIndex]) ? row[remarksIndex] : "",
 				comment: row[commentIndex] || "",
 				completed: hasCompleted ? parseCompletedValue(row[completedIndex]) : false
@@ -1698,7 +1706,7 @@ function importCsvText(text) {
 		return;
 	}
 
-	if (matchesHeader(header, ["id", "sku", "description", "vendor_id", "return_policy_type", "return_policy_months"])) {
+	if (matchesHeader(header, CSV_HEADER_ITEMS)) {
 		state.items = dataRows.map((row) => ({
 			id: row[0] || uid(),
 			sku: (row[1] || "").trim(),
@@ -1711,31 +1719,21 @@ function importCsvText(text) {
 		return;
 	}
 
-	const inventoryOnlyHeader = ["id", "item_id", "quantity", "expiry_date", "pullout_date", "remarks", "comment"];
-	const inventoryOnlyHeaderNoPullout = ["id", "item_id", "quantity", "expiry_date", "remarks", "comment"];
-	const inventoryOnlyHeaderWithCompleted = [...inventoryOnlyHeader, "completed"];
-	const inventoryOnlyHeaderNoPulloutWithCompleted = [...inventoryOnlyHeaderNoPullout, "completed"];
-
-	if (
-		matchesHeader(header, inventoryOnlyHeader)
-		|| matchesHeader(header, inventoryOnlyHeaderWithCompleted)
-		|| matchesHeader(header, inventoryOnlyHeaderNoPullout)
-		|| matchesHeader(header, inventoryOnlyHeaderNoPulloutWithCompleted)
-	) {
-		const hasPulloutColumn = matchesHeader(header, inventoryOnlyHeader) || matchesHeader(header, inventoryOnlyHeaderWithCompleted);
-		const hasCompletedColumn = matchesHeader(header, inventoryOnlyHeaderWithCompleted) || matchesHeader(header, inventoryOnlyHeaderNoPulloutWithCompleted);
-		const remarksIndex = hasPulloutColumn ? 5 : 4;
-		const commentIndex = hasPulloutColumn ? 6 : 5;
-		const completedIndex = hasPulloutColumn ? 7 : 6;
+	const inventoryVariant = findHeaderVariant(header, CSV_INVENTORY_VARIANTS);
+	if (inventoryVariant) {
+		const { hasPullout, hasCompleted } = inventoryVariant;
+		const remarksIndex = hasPullout ? 5 : 4;
+		const commentIndex = hasPullout ? 6 : 5;
+		const completedIndex = hasPullout ? 7 : 6;
 		state.inventory = dataRows.map((row) => ({
 			id: row[0] || uid(),
 			itemId: (row[1] || "").trim(),
 			quantity: parseQuantityValue(row[2]),
 			expiryDate: (row[3] || "").trim(),
-			pulloutDate: hasPulloutColumn ? normalizeMonthYear((row[4] || "").trim()) : "",
+			pulloutDate: hasPullout ? normalizeMonthYear((row[4] || "").trim()) : "",
 			remarks: REMARK_OPTIONS.includes(row[remarksIndex]) ? row[remarksIndex] : "",
 			comment: row[commentIndex] || "",
-			completed: hasCompletedColumn ? parseCompletedValue(row[completedIndex]) : false
+			completed: hasCompleted ? parseCompletedValue(row[completedIndex]) : false
 		})).filter((entry) => entry.itemId);
 		persist("inventory");
 		return;
@@ -1862,6 +1860,15 @@ function matchesHeader(actual, expected) {
 	}
 
 	return expected.every((entry, index) => normalized[index] === entry);
+}
+
+function findHeaderVariant(actual, variants) {
+	for (const variant of variants) {
+		if (matchesHeader(actual, variant.header)) {
+			return variant;
+		}
+	}
+	return null;
 }
 
 function policyLabel(item) {
