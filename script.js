@@ -1234,7 +1234,39 @@ function collectDashboardEntries(searchTerm = "") {
 		});
 	}
 
+	entries.sort((a, b) => {
+		const pulloutA = monthYearSortValue(a.pulloutDate);
+		const pulloutB = monthYearSortValue(b.pulloutDate);
+		if (pulloutA !== pulloutB) {
+			return pulloutA - pulloutB;
+		}
+
+		const vendorCompare = a.vendorName.localeCompare(b.vendorName, undefined, { sensitivity: "base" });
+		if (vendorCompare !== 0) {
+			return vendorCompare;
+		}
+
+		return a.item.description.localeCompare(b.item.description, undefined, { sensitivity: "base" });
+	});
+
 	return entries;
+}
+
+function monthYearSortValue(value) {
+	const raw = String(value || "").trim();
+	if (!raw) {
+		return Number.POSITIVE_INFINITY;
+	}
+
+	const [monthPart, yearPart] = raw.split("/");
+	const month = Number(monthPart);
+	const year = Number(yearPart);
+	if (!Number.isInteger(month) || !Number.isInteger(year) || month < 1 || month > 12) {
+		return Number.POSITIVE_INFINITY;
+	}
+
+	const fullYear = year < 100 ? 2000 + year : year;
+	return (fullYear * 100) + month;
 }
 
 function createMapById(entries) {
@@ -1484,6 +1516,7 @@ function calculatePulloutDate(expiryDate, item) {
 	const baseDate = new Date(year, monthIndex, 1);
 
 	const pullout = new Date(baseDate);
+	pullout.setMonth(pullout.getMonth() - 1);
 	if (item.returnPolicyType === "months_before_expiry") {
 		const monthsBefore = Number(item.returnPolicyMonths || 0);
 		if (monthsBefore > 0) {
