@@ -190,17 +190,18 @@ summary::-webkit-details-marker {
 	margin-bottom: 0.75rem;
 }
 
-.dashboard-search {
+.dashboard-date-filter {
 	display: grid;
 	gap: 0.35rem;
-	flex: 1 1 320px;
-	max-width: 420px;
 	color: #5c4040;
 	font-size: 0.86rem;
+	flex: 0 0 auto;
 }
 
-.dashboard-search input {
-	width: 100%;
+.dashboard-date-filter input {
+	width: 144px;
+	min-width: 144px;
+	max-width: 144px;
 }
 
 .toolbar-actions {
@@ -208,6 +209,7 @@ summary::-webkit-details-marker {
 	flex-wrap: wrap;
 	gap: 0.5rem;
 	align-items: end;
+	margin-left: auto;
 }
 
 .card {

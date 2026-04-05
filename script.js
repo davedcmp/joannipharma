@@ -10,7 +10,7 @@ const state = {
 	vendors: readStore(STORAGE_KEYS.vendors),
 	items: readStore(STORAGE_KEYS.items),
 	inventory: readStore(STORAGE_KEYS.inventory),
-	dashboardSearch: "",
+	pulloutDateFilter: "",
 	inventoryDrafts: new Map()
 };
 
@@ -65,7 +65,7 @@ const refs = {
 
 	newInventoryBtn: document.getElementById("newInventoryBtn"),
 	exportExcelBtn: document.getElementById("exportExcelBtn"),
-	dashboardSearchInput: document.getElementById("dashboardSearchInput"),
+	pulloutDateFilter: document.getElementById("pulloutDateFilter"),
 	inventoryModal: document.getElementById("inventoryModal"),
 	inventoryForm: document.getElementById("inventoryForm"),
 	closeInventoryModalBtn: document.getElementById("closeInventoryModalBtn"),
@@ -145,11 +145,14 @@ function bindEvents() {
 		resetInventoryForm();
 		openInventoryModal();
 	});
-	refs.dashboardSearchInput.addEventListener("input", () => {
-		state.dashboardSearch = refs.dashboardSearchInput.value.trim().toLowerCase();
+	refs.pulloutDateFilter.addEventListener("change", () => {
+		state.pulloutDateFilter = refs.pulloutDateFilter.value.trim();
 		renderDashboardRows();
 	});
-	refs.exportExcelBtn.addEventListener("click", exportDashboardExcel);
+	refs.exportExcelBtn.addEventListener("click", () => {
+		exportDashboardExcel();
+		closeMainMenu();
+	});
 	refs.dashboardRows.addEventListener("click", onDashboardTableClick);
 	refs.dashboardRows.addEventListener("input", onDashboardTableInput);
 	refs.dashboardRows.addEventListener("change", onDashboardTableChange);
@@ -746,7 +749,7 @@ function renderDashboardRows() {
 
 	if (!dashboardEntries.length) {
 		const tr = document.createElement("tr");
-		tr.innerHTML = `<td colspan="9" class="empty-state-cell">No matching dashboard rows.</td>`;
+		tr.innerHTML = `<td colspan="9" class="empty-state-cell">No dashboard rows.</td>`;
 		refs.dashboardRows.appendChild(tr);
 	}
 }
@@ -1078,7 +1081,7 @@ function exportDashboardExcel() {
 
 	const dataRows = [];
 
-	for (const entry of collectDashboardEntries(state.dashboardSearch)) {
+	for (const entry of collectDashboardEntries()) {
 		const { row, item, vendorName, policyText, pulloutDate } = entry;
 		dataRows.push([
 			item.sku,
@@ -1191,10 +1194,9 @@ function buildInventoryCsvRow(entry, itemMap) {
 	];
 }
 
-function collectDashboardEntries(searchTerm = "") {
+function collectDashboardEntries() {
 	const itemMap = createMapById(state.items);
 	const vendorMap = createMapById(state.vendors);
-	const normalizedSearchTerm = String(searchTerm || "").trim().toLowerCase();
 	const entries = [];
 
 	for (const row of state.inventory) {
@@ -1207,20 +1209,12 @@ function collectDashboardEntries(searchTerm = "") {
 		const vendorName = vendor ? vendor.name : "-";
 		const pulloutDate = resolvePulloutDate(row, item);
 		const policyText = policyLabel(item);
-		const haystack = [
-			item.sku,
-			item.description,
-			vendorName,
-			String(row.quantity ?? ""),
-			row.expiryDate || "",
-			policyText,
-			pulloutDate || "",
-			row.remarks || "",
-			row.comment || ""
-		].join(" ").toLowerCase();
 
-		if (normalizedSearchTerm && !haystack.includes(normalizedSearchTerm)) {
-			continue;
+		if (state.pulloutDateFilter) {
+			const pulloutMonthInput = dateStringToMonthInput(monthYearToDateString(pulloutDate));
+			if (pulloutMonthInput !== state.pulloutDateFilter) {
+				continue;
+			}
 		}
 
 		entries.push({

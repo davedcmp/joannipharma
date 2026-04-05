@@ -31,28 +31,31 @@
 			<aside id="mainMenuPanel" class="menu-panel" aria-label="Main menu">
 				<h2>Main Menu</h2>
 
-				<details open>
+				<details>
 					<summary>Records</summary>
 					<button id="openVendorBtn" type="button" class="menu-link close-menu-link">Vendors</button>
 					<button id="openItemBtn" type="button" class="menu-link close-menu-link">Items</button>
 				</details>
 
-				<details open>
+				<details>
 					<summary>Data</summary>
 					<button id="exportCsvBtn" type="button" class="menu-link close-menu-link">Export CSV</button>
 					<button id="importCsvBtn" type="button" class="menu-link close-menu-link">Import CSV</button>
 					<input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
 				</details>
+
+				<details>
+					<summary>Reports</summary>
+					<button id="exportExcelBtn" type="button" class="menu-link close-menu-link">Export to Excel</button>
+				</details>
 			</aside>
 
 			<section id="dashboardSection" class="content-section">
 				<div class="dashboard-toolbar card">
-					<label class="dashboard-search" for="dashboardSearchInput">
-						<span>Search</span>
-						<input id="dashboardSearchInput" type="text" placeholder="Search SKU, description, vendor, remarks, comment" autocomplete="off">
+					<label class="dashboard-date-filter" for="pulloutDateFilter">
+						<input id="pulloutDateFilter" type="month" autocomplete="off">
 					</label>
 					<div class="toolbar-actions">
-						<button id="exportExcelBtn" class="ghost-btn" type="button">Export to Excel</button>
 						<button id="newInventoryBtn" class="primary-btn" type="button">Add Line</button>
 					</div>
 				</div>
