@@ -117,7 +117,6 @@ summary {
 .menu-panel {
 	background: var(--panel);
 	border: 1px solid var(--line);
-	border-radius: var(--radius);
 	padding: 1rem;
 	box-shadow: var(--shadow);
 	position: fixed;
@@ -500,28 +499,17 @@ th {
 	background: #fff3df;
 }
 
-.item-summary {
-	line-height: 1.2;
-}
-
-.item-summary-main {
-	font-weight: 500;
-}
-
-.item-summary-sub {
-	margin-top: 0.15rem;
-	color: var(--muted);
-	font-size: 0.85em;
-}
-
+.item-summary,
 .policy-summary {
 	line-height: 1.2;
 }
 
+.item-summary-main,
 .policy-summary-main {
 	font-weight: 500;
 }
 
+.item-summary-sub,
 .policy-summary-sub {
 	margin-top: 0.15rem;
 	color: var(--muted);

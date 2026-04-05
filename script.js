@@ -29,6 +29,8 @@ const itemVendorLookup = {
 };
 
 let pendingDeleteAction = null;
+let closeItemVendorPopup, renderItemVendorPopup;
+let closeInventoryPopup, renderInventoryPopup;
 
 const refs = {
 	dashboardSection: document.getElementById("dashboardSection"),
@@ -133,20 +135,7 @@ function bindEvents() {
 	refs.vendorRows.addEventListener("click", onVendorTableClick);
 
 	refs.itemForm.addEventListener("submit", onSaveItem);
-	refs.itemVendorInput.addEventListener("input", onItemVendorTyped);
-	refs.itemVendorInput.addEventListener("change", onItemVendorTyped);
-	refs.itemVendorInput.addEventListener("focus", () => {
-		renderItemVendorPopup(refs.itemVendorInput.value);
-	});
-	refs.itemVendorInput.addEventListener("keydown", onItemVendorKeydown);
-	refs.itemVendorPopup.addEventListener("mousedown", (event) => {
-		event.preventDefault();
-		const button = event.target.closest("button[data-id]");
-		if (!button) {
-			return;
-		}
-		selectItemVendorOption(button.dataset.id);
-	});
+	({ close: closeItemVendorPopup, renderPopup: renderItemVendorPopup } = bindComboBox(itemVendorLookup, refs.itemVendorInput, refs.itemVendorPopup, refs.itemVendor));
 	refs.itemPolicyType.addEventListener("change", syncPolicyField);
 	refs.cancelItemBtn.addEventListener("click", resetItemForm);
 	refs.itemRows.addEventListener("click", onItemTableClick);
@@ -164,23 +153,10 @@ function bindEvents() {
 		closeMainMenu();
 	});
 	refs.dashboardRows.addEventListener("click", onDashboardTableClick);
-	refs.dashboardRows.addEventListener("input", onDashboardTableInput);
-	refs.dashboardRows.addEventListener("change", onDashboardTableChange);
+	refs.dashboardRows.addEventListener("input", onDashboardTableEdit);
+	refs.dashboardRows.addEventListener("change", onDashboardTableEdit);
 	refs.inventoryForm.addEventListener("submit", onSaveInventory);
-	refs.inventoryItemInput.addEventListener("input", onInventoryItemTyped);
-	refs.inventoryItemInput.addEventListener("change", onInventoryItemTyped);
-	refs.inventoryItemInput.addEventListener("focus", () => {
-		renderInventoryPopup(refs.inventoryItemInput.value);
-	});
-	refs.inventoryItemInput.addEventListener("keydown", onInventoryItemKeydown);
-	refs.inventoryItemPopup.addEventListener("mousedown", (event) => {
-		event.preventDefault();
-		const button = event.target.closest("button[data-id]");
-		if (!button) {
-			return;
-		}
-		selectInventoryOption(button.dataset.id);
-	});
+	({ close: closeInventoryPopup, renderPopup: renderInventoryPopup } = bindComboBox(inventoryCombo, refs.inventoryItemInput, refs.inventoryItemPopup, refs.inventoryItem));
 	document.addEventListener("click", (event) => {
 		if (!refs.itemVendorWrap.contains(event.target)) {
 			closeItemVendorPopup();
@@ -447,30 +423,12 @@ function onDashboardTableClick(event) {
 	}
 }
 
-function onDashboardTableChange(event) {
-	const field = event.target.dataset.inlineField;
-	const id = event.target.dataset.id;
+function onDashboardTableEdit(event) {
+	const { inlineField: field, id } = event.target.dataset;
 	if (!field || !id) {
 		return;
 	}
-
-	if (field === "remarks") {
-		stageInventoryInlineField(id, field, event.target.value);
-		return;
-	}
-}
-
-function onDashboardTableInput(event) {
-	const field = event.target.dataset.inlineField;
-	const id = event.target.dataset.id;
-	if (!field || !id) {
-		return;
-	}
-
-	if (field === "comment") {
-		stageInventoryInlineField(id, field, event.target.value, { rerenderIfNeeded: true });
-		return;
-	}
+	stageInventoryInlineField(id, field, event.target.value);
 }
 
 function onSaveVendor(event) {
@@ -903,6 +861,116 @@ function renderDashboardRows() {
 	}
 }
 
+function bindComboBox(combo, inputEl, popupEl, hiddenEl) {
+	function closePopup() {
+		popupEl.hidden = true;
+		popupEl.innerHTML = "";
+		combo.highlightedIndex = -1;
+	}
+
+	function updateHighlight() {
+		popupEl.querySelectorAll("button[data-id]").forEach((btn, i) => {
+			btn.classList.toggle("active", i === combo.highlightedIndex);
+		});
+	}
+
+	function select(id) {
+		hiddenEl.value = id;
+		inputEl.value = combo.idToLabel.get(id) || "";
+		closePopup();
+	}
+
+	function renderPopup(rawQuery) {
+		if (inputEl.disabled) {
+			closePopup();
+			return;
+		}
+		const query = rawQuery.trim().toLowerCase();
+		if (!query) {
+			closePopup();
+			return;
+		}
+		const matches = combo.options.filter((o) => o.lower.includes(query)).slice(0, 8);
+		popupEl.innerHTML = "";
+		if (!matches.length) {
+			closePopup();
+			return;
+		}
+		for (const match of matches) {
+			const li = document.createElement("li");
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.dataset.id = match.id;
+			btn.textContent = match.label;
+			li.appendChild(btn);
+			popupEl.appendChild(li);
+		}
+		combo.highlightedIndex = 0;
+		popupEl.hidden = false;
+		updateHighlight();
+	}
+
+	function onTyped() {
+		const label = inputEl.value.trim().toLowerCase();
+		hiddenEl.value = combo.labelToId.get(label) || "";
+		renderPopup(inputEl.value);
+	}
+
+	function onKeydown(event) {
+		if (popupEl.hidden) {
+			if (event.key === "ArrowDown" && inputEl.value.trim()) {
+				renderPopup(inputEl.value);
+			}
+			return;
+		}
+		const buttons = popupEl.querySelectorAll("button[data-id]");
+		if (!buttons.length) {
+			if (event.key === "Escape") {
+				closePopup();
+			}
+			return;
+		}
+		if (event.key === "ArrowDown") {
+			event.preventDefault();
+			combo.highlightedIndex = Math.min(combo.highlightedIndex + 1, buttons.length - 1);
+			updateHighlight();
+			return;
+		}
+		if (event.key === "ArrowUp") {
+			event.preventDefault();
+			combo.highlightedIndex = Math.max(combo.highlightedIndex - 1, 0);
+			updateHighlight();
+			return;
+		}
+		if (event.key === "Enter") {
+			event.preventDefault();
+			const btn = buttons[combo.highlightedIndex] || buttons[0];
+			if (btn) {
+				select(btn.dataset.id);
+			}
+			return;
+		}
+		if (event.key === "Escape") {
+			event.preventDefault();
+			closePopup();
+		}
+	}
+
+	inputEl.addEventListener("input", onTyped);
+	inputEl.addEventListener("change", onTyped);
+	inputEl.addEventListener("focus", () => renderPopup(inputEl.value));
+	inputEl.addEventListener("keydown", onKeydown);
+	popupEl.addEventListener("mousedown", (event) => {
+		event.preventDefault();
+		const btn = event.target.closest("button[data-id]");
+		if (btn) {
+			select(btn.dataset.id);
+		}
+	});
+
+	return { close: closePopup, renderPopup };
+}
+
 function renderItemVendorOptions() {
 	const previous = refs.itemVendor.value;
 	itemVendorLookup.options = [];
@@ -936,113 +1004,6 @@ function renderItemVendorOptions() {
 		? itemVendorLookup.idToLabel.get(refs.itemVendor.value) || ""
 		: "";
 	closeItemVendorPopup();
-}
-
-function onItemVendorTyped() {
-	const label = refs.itemVendorInput.value.trim().toLowerCase();
-	refs.itemVendor.value = itemVendorLookup.labelToId.get(label) || "";
-	renderItemVendorPopup(refs.itemVendorInput.value);
-}
-
-function onItemVendorKeydown(event) {
-	if (refs.itemVendorPopup.hidden) {
-		if (event.key === "ArrowDown" && refs.itemVendorInput.value.trim()) {
-			renderItemVendorPopup(refs.itemVendorInput.value);
-		}
-		return;
-	}
-
-	const visibleButtons = refs.itemVendorPopup.querySelectorAll("button[data-id]");
-	if (!visibleButtons.length) {
-		if (event.key === "Escape") {
-			closeItemVendorPopup();
-		}
-		return;
-	}
-
-	if (event.key === "ArrowDown") {
-		event.preventDefault();
-		itemVendorLookup.highlightedIndex = Math.min(itemVendorLookup.highlightedIndex + 1, visibleButtons.length - 1);
-		updateItemVendorPopupHighlight();
-		return;
-	}
-
-	if (event.key === "ArrowUp") {
-		event.preventDefault();
-		itemVendorLookup.highlightedIndex = Math.max(itemVendorLookup.highlightedIndex - 1, 0);
-		updateItemVendorPopupHighlight();
-		return;
-	}
-
-	if (event.key === "Enter") {
-		event.preventDefault();
-		const button = visibleButtons[itemVendorLookup.highlightedIndex] || visibleButtons[0];
-		if (button) {
-			selectItemVendorOption(button.dataset.id);
-		}
-		return;
-	}
-
-	if (event.key === "Escape") {
-		event.preventDefault();
-		closeItemVendorPopup();
-	}
-}
-
-function renderItemVendorPopup(rawQuery) {
-	if (refs.itemVendorInput.disabled) {
-		closeItemVendorPopup();
-		return;
-	}
-
-	const query = rawQuery.trim().toLowerCase();
-	if (!query) {
-		closeItemVendorPopup();
-		return;
-	}
-
-	const matches = itemVendorLookup.options
-		.filter((option) => option.lower.includes(query))
-		.slice(0, 8);
-
-	refs.itemVendorPopup.innerHTML = "";
-	if (!matches.length) {
-		closeItemVendorPopup();
-		return;
-	}
-
-	for (const match of matches) {
-		const li = document.createElement("li");
-		const button = document.createElement("button");
-		button.type = "button";
-		button.dataset.id = match.id;
-		button.textContent = match.label;
-		li.appendChild(button);
-		refs.itemVendorPopup.appendChild(li);
-	}
-
-	itemVendorLookup.highlightedIndex = 0;
-	refs.itemVendorPopup.hidden = false;
-	updateItemVendorPopupHighlight();
-}
-
-function updateItemVendorPopupHighlight() {
-	const visibleButtons = refs.itemVendorPopup.querySelectorAll("button[data-id]");
-	visibleButtons.forEach((button, index) => {
-		button.classList.toggle("active", index === itemVendorLookup.highlightedIndex);
-	});
-}
-
-function selectItemVendorOption(id) {
-	refs.itemVendor.value = id;
-	refs.itemVendorInput.value = itemVendorLookup.idToLabel.get(id) || "";
-	closeItemVendorPopup();
-}
-
-function closeItemVendorPopup() {
-	refs.itemVendorPopup.hidden = true;
-	refs.itemVendorPopup.innerHTML = "";
-	itemVendorLookup.highlightedIndex = -1;
 }
 
 function renderInventoryItemOptions() {
@@ -1085,113 +1046,6 @@ function renderInventoryItemOptions() {
 	closeInventoryPopup();
 }
 
-function onInventoryItemTyped() {
-	const label = refs.inventoryItemInput.value.trim().toLowerCase();
-	refs.inventoryItem.value = inventoryCombo.labelToId.get(label) || "";
-	renderInventoryPopup(refs.inventoryItemInput.value);
-}
-
-function onInventoryItemKeydown(event) {
-	if (refs.inventoryItemPopup.hidden) {
-		if (event.key === "ArrowDown" && refs.inventoryItemInput.value.trim()) {
-			renderInventoryPopup(refs.inventoryItemInput.value);
-		}
-		return;
-	}
-
-	const visibleButtons = refs.inventoryItemPopup.querySelectorAll("button[data-id]");
-	if (!visibleButtons.length) {
-		if (event.key === "Escape") {
-			closeInventoryPopup();
-		}
-		return;
-	}
-
-	if (event.key === "ArrowDown") {
-		event.preventDefault();
-		inventoryCombo.highlightedIndex = Math.min(inventoryCombo.highlightedIndex + 1, visibleButtons.length - 1);
-		updateInventoryPopupHighlight();
-		return;
-	}
-
-	if (event.key === "ArrowUp") {
-		event.preventDefault();
-		inventoryCombo.highlightedIndex = Math.max(inventoryCombo.highlightedIndex - 1, 0);
-		updateInventoryPopupHighlight();
-		return;
-	}
-
-	if (event.key === "Enter") {
-		event.preventDefault();
-		const button = visibleButtons[inventoryCombo.highlightedIndex] || visibleButtons[0];
-		if (button) {
-			selectInventoryOption(button.dataset.id);
-		}
-		return;
-	}
-
-	if (event.key === "Escape") {
-		event.preventDefault();
-		closeInventoryPopup();
-	}
-}
-
-function renderInventoryPopup(rawQuery) {
-	if (refs.inventoryItemInput.disabled) {
-		closeInventoryPopup();
-		return;
-	}
-
-	const query = rawQuery.trim().toLowerCase();
-	if (!query) {
-		closeInventoryPopup();
-		return;
-	}
-
-	const matches = inventoryCombo.options
-		.filter((option) => option.lower.includes(query))
-		.slice(0, 8);
-
-	refs.inventoryItemPopup.innerHTML = "";
-	if (!matches.length) {
-		closeInventoryPopup();
-		return;
-	}
-
-	for (const match of matches) {
-		const li = document.createElement("li");
-		const button = document.createElement("button");
-		button.type = "button";
-		button.dataset.id = match.id;
-		button.textContent = match.label;
-		li.appendChild(button);
-		refs.inventoryItemPopup.appendChild(li);
-	}
-
-	inventoryCombo.highlightedIndex = 0;
-	refs.inventoryItemPopup.hidden = false;
-	updateInventoryPopupHighlight();
-}
-
-function updateInventoryPopupHighlight() {
-	const visibleButtons = refs.inventoryItemPopup.querySelectorAll("button[data-id]");
-	visibleButtons.forEach((button, index) => {
-		button.classList.toggle("active", index === inventoryCombo.highlightedIndex);
-	});
-}
-
-function selectInventoryOption(id) {
-	refs.inventoryItem.value = id;
-	refs.inventoryItemInput.value = inventoryCombo.idToLabel.get(id) || "";
-	closeInventoryPopup();
-}
-
-function closeInventoryPopup() {
-	refs.inventoryItemPopup.hidden = true;
-	refs.inventoryItemPopup.innerHTML = "";
-	inventoryCombo.highlightedIndex = -1;
-}
-
 function openInventoryModal() {
 	refs.inventoryModal.hidden = false;
 	document.body.classList.add("modal-open");
@@ -1199,7 +1053,9 @@ function openInventoryModal() {
 
 function closeInventoryModal() {
 	refs.inventoryModal.hidden = true;
-	document.body.classList.remove("modal-open");
+	if (refs.messageModal.hidden && refs.confirmModal.hidden) {
+		document.body.classList.remove("modal-open");
+	}
 }
 
 function showIssueModal(message, title = "Unable to Save") {
@@ -1781,23 +1637,6 @@ function dateStringToMonthInput(value) {
 	}
 
 	return `${year}-${String(month).padStart(2, "0")}`;
-}
-
-function monthInputToMonthYear(value) {
-	const raw = String(value || "").trim();
-	if (!raw) {
-		return "";
-	}
-
-	const [year, month] = raw.split("-");
-	const yearNumber = Number(year);
-	const monthNumber = Number(month);
-	if (!Number.isInteger(yearNumber) || !Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) {
-		return "";
-	}
-
-	const twoDigitYear = String(yearNumber % 100).padStart(2, "0");
-	return `${String(monthNumber).padStart(2, "0")}/${twoDigitYear}`;
 }
 
 function monthYearToMonthInput(value) {
