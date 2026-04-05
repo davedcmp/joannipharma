@@ -39,6 +39,11 @@ const refs = {
 	menuPanel: document.getElementById("mainMenuPanel"),
 	menuToggleBtn: document.getElementById("menuToggleBtn"),
 	menuBackdrop: document.getElementById("menuBackdrop"),
+	startupScreen: document.getElementById("startupScreen"),
+	closeStartupScreenBtn: document.getElementById("closeStartupScreenBtn"),
+	startupScreenSummary: document.getElementById("startupScreenSummary"),
+	startupCandidateRows: document.getElementById("startupCandidateRows"),
+	startupContinueBtn: document.getElementById("startupContinueBtn"),
 	homeBtn: document.getElementById("homeBtn"),
 	closeVendorSectionBtn: document.getElementById("closeVendorSectionBtn"),
 	closeItemSectionBtn: document.getElementById("closeItemSectionBtn"),
@@ -102,6 +107,7 @@ function init() {
 	bindEvents();
 	renderAll();
 	showSection("dashboard");
+	openStartupScreen();
 }
 
 function bindEvents() {
@@ -110,11 +116,24 @@ function bindEvents() {
 	setupMainMenuSectionAnimations();
 	document.addEventListener("keydown", (event) => {
 		if (event.key === "Escape") {
+			closeStartupScreen();
 			closeMessageModal();
 			closeConfirmModal();
 			closeMainMenu();
 		}
 	});
+
+	if (refs.startupScreen && refs.closeStartupScreenBtn && refs.startupContinueBtn && refs.startupCandidateRows) {
+		refs.closeStartupScreenBtn.addEventListener("click", closeStartupScreen);
+		refs.startupContinueBtn.addEventListener("click", closeStartupScreen);
+		refs.startupScreen.addEventListener("click", (event) => {
+			if (event.target === refs.startupScreen) {
+				closeStartupScreen();
+			}
+		});
+		refs.startupCandidateRows.addEventListener("click", onStartupCandidateTableClick);
+		refs.startupCandidateRows.addEventListener("keydown", onStartupCandidateTableKeydown);
+	}
 
 	if (refs.homeBtn) {
 		refs.homeBtn.addEventListener("click", () => showSection("dashboard"));
@@ -358,8 +377,62 @@ function renderAll() {
 	renderItemRows();
 	renderItemVendorOptions();
 	renderInventoryItemOptions();
+	renderStartupCandidateRows();
 	renderDashboardRows();
 	syncPolicyField();
+}
+
+function openStartupScreen() {
+	if (!refs.startupScreen) {
+		return;
+	}
+
+	refs.startupScreen.hidden = false;
+	document.body.classList.add("modal-open");
+}
+
+function closeStartupScreen() {
+	if (!refs.startupScreen) {
+		return;
+	}
+
+	refs.startupScreen.hidden = true;
+	if (refs.inventoryModal.hidden && refs.messageModal.hidden && refs.confirmModal.hidden) {
+		document.body.classList.remove("modal-open");
+	}
+}
+
+function onStartupCandidateTableClick(event) {
+	const row = event.target.closest("tr[data-action='open-startup-candidate'][data-id]");
+	if (!row) {
+		return;
+	}
+
+	openStartupCandidate(row.dataset.id);
+}
+
+function onStartupCandidateTableKeydown(event) {
+	if (event.key !== "Enter" && event.key !== " ") {
+		return;
+	}
+
+	const row = event.target.closest("tr[data-action='open-startup-candidate'][data-id]");
+	if (!row) {
+		return;
+	}
+
+	event.preventDefault();
+	openStartupCandidate(row.dataset.id);
+}
+
+function openStartupCandidate(id) {
+	if (!id) {
+		return;
+	}
+
+	closeStartupScreen();
+	showSection("dashboard");
+	editInventory(id);
 }
 
 function onVendorTableClick(event) {
@@ -835,7 +908,7 @@ function renderDashboardRows() {
 					<div class="policy-summary-sub">${escapeHtml(policyParts[1])}</div>
 				</div>
 			</td>
-			<td>${formatMonthYear(pulloutDate)}</td>
+			<td>${formatPulloutDate(pulloutDate)}</td>
 			<td>
 				<select class="dashboard-inline-select" data-inline-field="remarks" data-id="${row.id}" aria-label="Edit remarks">
 					<option value="" ${inlineRemarks ? "" : "selected"}></option>
@@ -858,6 +931,55 @@ function renderDashboardRows() {
 		const tr = document.createElement("tr");
 		tr.innerHTML = `<td colspan="9" class="empty-state-cell">No dashboard rows.</td>`;
 		refs.dashboardRows.appendChild(tr);
+	}
+}
+
+function renderStartupCandidateRows() {
+	if (!refs.startupCandidateRows || !refs.startupScreenSummary) {
+		return;
+	}
+
+	refs.startupCandidateRows.innerHTML = "";
+	const candidates = collectPulloutCandidates();
+	refs.startupScreenSummary.textContent = candidates.length
+		? `${candidates.length} inventory entr${candidates.length === 1 ? "y is" : "ies are"} candidate${candidates.length === 1 ? "" : "s"} for pull-out. Click a row to open its inventory entry.`
+		: "No pull-out candidates found right now.";
+
+	for (const entry of candidates) {
+		const { row, item, vendorName, pulloutDate, rowStatus } = entry;
+		const tr = document.createElement("tr");
+		tr.className = "startup-candidate-row";
+		tr.dataset.action = "open-startup-candidate";
+		tr.dataset.id = row.id;
+		tr.tabIndex = 0;
+		tr.setAttribute("role", "button");
+		tr.setAttribute("aria-label", `Open inventory entry for ${item.description}`);
+		if (rowStatus === "expired") {
+			tr.classList.add("row-expired");
+		} else if (rowStatus === "pullout") {
+			tr.classList.add("row-pullout");
+		}
+		tr.innerHTML = `
+			<td>
+				<div class="item-summary">
+					<div class="item-summary-main">${escapeHtml(item.description)}</div>
+					<div class="item-summary-sub">${escapeHtml(vendorName)}</div>
+				</div>
+			</td>
+			<td>
+				<div class="startup-date-pair">
+					<div class="startup-date-main">Expiry: ${formatDateMonthYear(row.expiryDate)}</div>
+					<div class="startup-date-main">Pull-out: ${formatPulloutDate(pulloutDate)}</div>
+				</div>
+			</td>
+		`;
+		refs.startupCandidateRows.appendChild(tr);
+	}
+
+	if (!candidates.length) {
+		const tr = document.createElement("tr");
+		tr.innerHTML = `<td colspan="2" class="empty-state-cell">No pull-out candidates found.</td>`;
+		refs.startupCandidateRows.appendChild(tr);
 	}
 }
 
@@ -1119,7 +1241,7 @@ function exportDashboardExcel() {
 			row.quantity ?? 0,
 			row.expiryDate || "",
 			policyText,
-			formatMonthYear(pulloutDate),
+			formatPulloutDate(pulloutDate),
 			row.remarks || "",
 			row.comment || ""
 		]);
@@ -1273,6 +1395,10 @@ function collectDashboardEntries() {
 	});
 
 	return entries;
+}
+
+function collectPulloutCandidates() {
+	return collectDashboardEntries().filter((entry) => entry.rowStatus !== "normal");
 }
 
 function monthYearSortValue(value) {
@@ -1692,6 +1818,11 @@ function formatMonthYear(value) {
 	return `${String(monthNumber).padStart(2, "0")}/${String(yearNumber % 100).padStart(2, "0")}`;
 }
 
+function formatPulloutDate(value) {
+	const normalizedDate = monthYearToDateString(value);
+	return normalizedDate ? formatDate(normalizedDate) : formatMonthYear(value);
+}
+
 function getInventoryRowStatus(expiryDate, pulloutDate) {
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
@@ -1748,6 +1879,10 @@ function formatDate(value) {
 	const month = String(date.getMonth() + 1).padStart(2, "0");
 	const year = String(date.getFullYear() % 100).padStart(2, "0");
 	return `${month}/${year}`;
+}
+
+function formatDateMonthYear(value) {
+	return formatDate(value);
 }
 
 function escapeHtml(value) {
