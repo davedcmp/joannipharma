@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Joanni Pharma End-User Guide</title>
+  <style>
+    :root {
+      --ink: #2d1f1f;
+      --muted: #6d5656;
+      --accent: #cc2a2a;
+      --bg: #fff8f8;
+      --line: #ead3d3;
+      --card: #ffffff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.5;
+    }
+
+    .page {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+
+    .cover {
+      background: linear-gradient(160deg, #ffeaea, #ffffff);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+
+    h1, h2, h3 {
+      margin: 0 0 10px;
+      color: #4a2f2f;
+    }
+
+    h1 { font-size: 34px; }
+    h2 {
+      font-size: 26px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 8px;
+      margin-top: 36px;
+    }
+    h3 { font-size: 20px; margin-top: 20px; }
+
+    p, li {
+      font-size: 15px;
+      color: var(--ink);
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 6px;
+    }
+
+    .toc {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin: 20px 0;
+    }
+
+    .toc ol {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 14px;
+    }
+
+    .steps {
+      margin: 0;
+      padding-left: 22px;
+    }
+
+    .steps li { margin-bottom: 8px; }
+
+    .note {
+      margin-top: 10px;
+      border-left: 4px solid var(--accent);
+      padding: 10px 12px;
+      background: #fff2f2;
+      color: #5e3d3d;
+      font-size: 14px;
+    }
+
+    .shot {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .shot img {
+      width: 100%;
+      display: block;
+      height: auto;
+    }
+
+    .caption {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .checklist {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .checklist li { margin-bottom: 6px; }
+
+    .footer {
+      margin-top: 40px;
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+    }
+
+    @media print {
+      body { background: #fff; }
+      .page { max-width: none; padding: 10mm; }
+      h2 { page-break-after: avoid; }
+      .card, .shot, .toc { break-inside: avoid; }
+      .page-break { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="cover">
+      <h1>Joanni Pharma End-User Guide</h1>
+      <p>This document explains how to use all features of the Joanni Pharma web app for day-to-day operations.</p>
+      <p class="meta">Audience: End users | Scope: Dashboard, records, data import/export, reports, editing, and deletion workflows</p>
+    </section>
+
+    <section class="toc">
+      <h3>Table of Contents</h3>
+      <ol>
+        <li>Getting Started</li>
+        <li>Main Menu and Navigation</li>
+        <li>Dashboard and Filter</li>
+        <li>Add Inventory Line</li>
+        <li>Inline Editing in Dashboard</li>
+        <li>Vendor Maintenance</li>
+        <li>Item Maintenance</li>
+        <li>Import and Export (CSV)</li>
+        <li>Export Report (Excel)</li>
+        <li>Delete Confirmation and Notifications</li>
+        <li>Troubleshooting</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>1. Getting Started</h2>
+      <div class="card">
+        <ol class="steps">
+          <li>Open the app in your browser.</li>
+          <li>You will land on the Dashboard by default.</li>
+          <li>Use the menu icon in the upper-left corner to access all sections.</li>
+        </ol>
+        <div class="note">All data is saved in your browser storage. Use CSV export regularly for backup.</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>2. Main Menu and Navigation</h2>
+      <div class="card">
+        <ol class="steps">
+          <li>Click the menu icon in the header to open the Main Menu.</li>
+          <li>Expand <strong>Records</strong> to open Vendors or Items maintenance.</li>
+          <li>Expand <strong>Data</strong> to Export/Import CSV.</li>
+          <li>Expand <strong>Reports</strong> to export Dashboard data to Excel.</li>
+          <li>Close the menu by clicking outside, pressing <strong>Esc</strong>, or toggling menu icon.</li>
+        </ol>
+      </div>
+      <div class="shot"><img src="images/main-menu.svg" alt="Main Menu screenshot"></div>
+      <p class="caption">Figure: Main Menu sections and available actions.</p>
+    </section>
+
+    <section class="page-break">
+      <h2>3. Dashboard and Pull-out Date Filter</h2>
+      <div class="card">
+        <ol class="steps">
+          <li>Use the month filter at the top-left of the toolbar to narrow rows by pull-out date.</li>
+          <li>Click <strong>Add Line</strong> to create a new inventory record.</li>
+          <li>Review table columns: SKU, Description/Vendor, Qty, Expiry, Return Policy, Pull-out, Remarks, Comment, Actions.</li>
+          <li>Rows may highlight based on status (for pull-out or expired conditions).</li>
+        </ol>
+      </div>
+      <div class="shot"><img src="images/dashboard-overview.svg" alt="Dashboard overview screenshot"></div>
+      <p class="caption">Figure: Dashboard toolbar and table layout.</p>
+    </section>
+
+    <section>
+      <h2>4. Add Inventory Line</h2>
+      <div class="card">
+        <ol class="steps">
+          <li>Click <strong>Add Line</strong> on the Dashboard.</li>
+          <li>In the Line Entry modal, select an item using SKU/description autocomplete.</li>
+          <li>Enter Quantity and Expiry Date.</li>
+          <li>Set Remarks and optional Comment.</li>
+          <li>Click <strong>Save</strong> to add the row, or <strong>Cancel</strong> to discard.</li>
+        </ol>
+      </div>
+      <div class="shot"><img src="images/add-line-modal.svg" alt="Line Entry modal screenshot"></div>
+      <p class="caption">Figure: Add Line modal with required fields.</p>
+    </section>
+
+    <section>
+      <h2>5. Inline Editing in Dashboard</h2>
+      <div class="card">
+        <ol class="steps">
+          <li>Edit <strong>Remarks</strong> and <strong>Comment</strong> directly in each row.</li>
+          <li>After editing, row action buttons change to <strong>Save</strong> and <strong>Cancel</strong>.</li>
+          <li>Click Save to commit or Cancel to revert inline changes.</li>
+        </ol>
+      </div>
+      <div class="shot"><img src="images/inline-editing.svg" alt="Inline editing screenshot"></div>
+      <p class="caption">Figure: Inline editing workflow in dashboard rows.</p>
+    </section>
+
+    <section class="page-break">
+      <h2>6. Vendor Maintenance</h2>
+      <div class="card">
+        <ol class="steps">
+          <li>Open <strong>Main Menu > Records > Vendors</strong>.</li>
+          <li>Add or edit vendor name in the form.</li>
+          <li>Use table action buttons to edit or delete an existing vendor.</li>
+          <li>If a vendor is in use by items, deletion is blocked with a notification modal.</li>
+        </ol>
+      </div>
+      <div class="shot"><img src="images/vendor-maintenance.svg" alt="Vendor maintenance screenshot"></div>
+      <p class="caption">Figure: Vendor form and vendor table.</p>
+    </section>
+
+    <section>
+      <h2>7. Item Maintenance</h2>
+      <div class="card">
+        <ol class="steps">
+          <li>Open <strong>Main Menu > Records > Items</strong>.</li>
+          <li>Enter SKU, Description, and select Vendor via autocomplete.</li>
+          <li>Choose Return Policy:
+            <ul class="checklist">
+              <li><strong>By number of months</strong></li>
+              <li><strong>On the month of expiry</strong></li>
+            </ul>
+          </li>
+          <li>Save item, then manage entries using table action buttons.</li>
+        </ol>
+      </div>
+      <div class="shot"><img src="images/item-maintenance.svg" alt="Item maintenance screenshot"></div>
+      <p class="caption">Figure: Item maintenance form and list.</p>
+    </section>
+
+    <section>
+      <h2>8. Import and Export (CSV)</h2>
+      <div class="card">
+        <ol class="steps">
+          <li><strong>Export CSV:</strong> Main Menu > Data > Export CSV.</li>
+          <li><strong>Import CSV:</strong> Main Menu > Data > Import CSV and choose file.</li>
+          <li>Watch for modal notification after import (success or failure).</li>
+          <li>For best results, import CSV files that were exported from this app.</li>
+        </ol>
+      </div>
+      <div class="shot"><img src="images/csv-import-export.svg" alt="CSV import and export screenshot"></div>
+      <p class="caption">Figure: Data section actions for backup and restore.</p>
+    </section>
+
+    <section>
+      <h2>9. Export Report (Excel)</h2>
+      <div class="card">
+        <ol class="steps">
+          <li>Open <strong>Main Menu > Reports > Export to Excel</strong>.</li>
+          <li>The file contains Dashboard records and respects your current filter.</li>
+          <li>Save the generated file for reporting or sharing.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section>
+      <h2>10. Delete Confirmation and Notifications</h2>
+      <div class="card">
+        <ol class="steps">
+          <li>Deleting a vendor, item, or inventory row opens a confirmation modal.</li>
+          <li>Click <strong>Delete</strong> to continue or <strong>Cancel</strong> to stop.</li>
+          <li>Informational and error messages are shown in notification modals.</li>
+        </ol>
+      </div>
+      <div class="shot"><img src="images/delete-confirmation.svg" alt="Delete confirmation modal screenshot"></div>
+      <p class="caption">Figure: Confirmation modal used before deleting records.</p>
+    </section>
+
+    <section class="page-break">
+      <h2>11. Troubleshooting</h2>
+      <div class="card">
+        <h3>Cannot delete vendor or item</h3>
+        <p>This record is still referenced elsewhere. Remove dependent records first, then retry.</p>
+
+        <h3>Import CSV failed</h3>
+        <p>Use a CSV exported by this app and verify file contents were not manually corrupted.</p>
+
+        <h3>No rows shown on dashboard</h3>
+        <p>Clear or change the pull-out month filter and confirm inventory records exist.</p>
+      </div>
+    </section>
+
+    <div class="footer">
+      Document: Joanni Pharma End-User Guide | Version: 1.0 | Generated for end-user operations
+    </div>
+  </main>
+</body>
+</html>

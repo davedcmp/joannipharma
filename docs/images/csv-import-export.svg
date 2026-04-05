@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700">
+  <rect width="1200" height="700" fill="#fff6f6"/>
+  <text x="40" y="60" font-family="Arial, sans-serif" font-size="34" fill="#4e3535">Data Import and Export</text>
+  <rect x="40" y="95" width="540" height="560" rx="12" fill="#fff" stroke="#e9cfcf"/>
+  <text x="70" y="140" font-family="Arial, sans-serif" font-size="24" fill="#5a3b3b">Export CSV</text>
+  <text x="70" y="180" font-family="Arial, sans-serif" font-size="16" fill="#6b4e4e">Main Menu > Data > Export CSV</text>
+  <text x="70" y="220" font-family="Arial, sans-serif" font-size="16" fill="#6b4e4e">Creates a full backup of vendors, items, and inventory.</text>
+  <text x="70" y="280" font-family="Arial, sans-serif" font-size="24" fill="#5a3b3b">Import CSV</text>
+  <text x="70" y="320" font-family="Arial, sans-serif" font-size="16" fill="#6b4e4e">Main Menu > Data > Import CSV</text>
+  <text x="70" y="360" font-family="Arial, sans-serif" font-size="16" fill="#6b4e4e">Select a supported CSV file from this app.</text>
+  <text x="70" y="400" font-family="Arial, sans-serif" font-size="16" fill="#6b4e4e">Shows modal notification for success or failure.</text>
+  <rect x="620" y="95" width="540" height="560" rx="12" fill="#fff" stroke="#e9cfcf"/>
+  <text x="650" y="140" font-family="Arial, sans-serif" font-size="24" fill="#5a3b3b">Export to Excel</text>
+  <text x="650" y="180" font-family="Arial, sans-serif" font-size="16" fill="#6b4e4e">Main Menu > Reports > Export to Excel</text>
+  <text x="650" y="220" font-family="Arial, sans-serif" font-size="16" fill="#6b4e4e">Exports dashboard view (including current filter results).</text>
+  <text x="650" y="280" font-family="Arial, sans-serif" font-size="18" fill="#5a3b3b">Recommended Workflow</text>
+  <text x="670" y="320" font-family="Arial, sans-serif" font-size="16" fill="#6b4e4e">1. Export CSV regularly for backup.</text>
+  <text x="670" y="350" font-family="Arial, sans-serif" font-size="16" fill="#6b4e4e">2. Import only trusted CSV files.</text>
+  <text x="670" y="380" font-family="Arial, sans-serif" font-size="16" fill="#6b4e4e">3. Use Excel export for reports.</text>
+</svg>

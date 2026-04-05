@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="700" viewBox="0 0 900 700">
+  <rect width="900" height="700" fill="#fff6f6"/>
+  <rect x="20" y="20" width="340" height="660" rx="0" fill="#ffffff" stroke="#e7cccc"/>
+  <text x="45" y="70" font-family="Arial, sans-serif" font-size="30" fill="#4e3535">Main Menu</text>
+  <line x1="40" y1="88" x2="330" y2="88" stroke="#f0dddd"/>
+  <text x="45" y="130" font-family="Arial, sans-serif" font-size="22" fill="#5a3b3b">Records</text>
+  <rect x="45" y="145" width="290" height="42" rx="10" fill="#fff3f3" stroke="#f0cdcd"/>
+  <text x="60" y="172" font-family="Arial, sans-serif" font-size="18" fill="#5a3b3b">Vendors</text>
+  <rect x="45" y="195" width="290" height="42" rx="10" fill="#fff3f3" stroke="#f0cdcd"/>
+  <text x="60" y="222" font-family="Arial, sans-serif" font-size="18" fill="#5a3b3b">Items</text>
+  <text x="45" y="280" font-family="Arial, sans-serif" font-size="22" fill="#5a3b3b">Data</text>
+  <rect x="45" y="295" width="290" height="42" rx="10" fill="#fff3f3" stroke="#f0cdcd"/>
+  <text x="60" y="322" font-family="Arial, sans-serif" font-size="18" fill="#5a3b3b">Export CSV</text>
+  <rect x="45" y="345" width="290" height="42" rx="10" fill="#fff3f3" stroke="#f0cdcd"/>
+  <text x="60" y="372" font-family="Arial, sans-serif" font-size="18" fill="#5a3b3b">Import CSV</text>
+  <text x="45" y="430" font-family="Arial, sans-serif" font-size="22" fill="#5a3b3b">Reports</text>
+  <rect x="45" y="445" width="290" height="42" rx="10" fill="#fff3f3" stroke="#f0cdcd"/>
+  <text x="60" y="472" font-family="Arial, sans-serif" font-size="18" fill="#5a3b3b">Export to Excel</text>
+  <text x="410" y="90" font-family="Arial, sans-serif" font-size="26" fill="#4e3535">How to open</text>
+  <text x="410" y="130" font-family="Arial, sans-serif" font-size="18" fill="#6b4e4e">1. Click the menu icon in the top-left header.</text>
+  <text x="410" y="165" font-family="Arial, sans-serif" font-size="18" fill="#6b4e4e">2. Click a section title to expand sub-menu options.</text>
+  <text x="410" y="200" font-family="Arial, sans-serif" font-size="18" fill="#6b4e4e">3. Menu sections collapse when menu is closed.</text>
+</svg>

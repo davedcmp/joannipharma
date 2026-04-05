@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="620" viewBox="0 0 1000 620">
+  <rect width="1000" height="620" fill="#fdf2f2"/>
+  <rect x="230" y="120" width="540" height="360" rx="14" fill="#fff" stroke="#e5c6c6"/>
+  <text x="270" y="185" font-family="Arial, sans-serif" font-size="30" fill="#4e3535">Confirm Delete</text>
+  <rect x="700" y="145" width="34" height="34" rx="8" fill="#fff" stroke="#d9bcbc"/>
+  <text x="713" y="167" font-family="Arial, sans-serif" font-size="18" fill="#5a3b3b">X</text>
+  <text x="270" y="240" font-family="Arial, sans-serif" font-size="20" fill="#5a3b3b">Are you sure you want to delete this item?</text>
+  <rect x="270" y="320" width="140" height="46" rx="10" fill="#cc2a2a"/>
+  <text x="314" y="349" font-family="Arial, sans-serif" font-size="18" fill="#fff">Delete</text>
+  <rect x="425" y="320" width="140" height="46" rx="10" fill="#fff" stroke="#d9bcbc"/>
+  <text x="473" y="349" font-family="Arial, sans-serif" font-size="18" fill="#5a3b3b">Cancel</text>
+  <text x="250" y="540" font-family="Arial, sans-serif" font-size="16" fill="#6b4e4e">Shown when deleting vendors, items, and inventory rows.</text>
+</svg>

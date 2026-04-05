@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680">
+  <rect width="1200" height="680" fill="#fff6f6"/>
+  <text x="40" y="60" font-family="Arial, sans-serif" font-size="34" fill="#4e3535">Inline Editing on Dashboard</text>
+  <rect x="40" y="95" width="1120" height="540" rx="12" fill="#fff" stroke="#e9cfcf"/>
+  <text x="70" y="140" font-family="Arial, sans-serif" font-size="20" fill="#5a3b3b">Edit Remarks and Comment directly in table rows</text>
+  <rect x="70" y="175" width="1060" height="56" rx="8" fill="#fff3df"/>
+  <rect x="770" y="188" width="150" height="30" rx="6" fill="#fff" stroke="#d9bcbc"/>
+  <rect x="930" y="188" width="160" height="30" rx="6" fill="#fff" stroke="#d9bcbc"/>
+  <text x="86" y="210" font-family="Arial, sans-serif" font-size="14" fill="#6b4e4e">After editing any field, action buttons change to Save and Cancel.</text>
+  <rect x="70" y="255" width="1060" height="60" rx="8" fill="#ffffff" stroke="#f0dddd"/>
+  <rect x="1010" y="270" width="40" height="30" rx="6" fill="#ffffff" stroke="#d9bcbc"/>
+  <text x="1022" y="291" font-family="Arial, sans-serif" font-size="16" fill="#5a3b3b">✓</text>
+  <rect x="1060" y="270" width="40" height="30" rx="6" fill="#ffeaea" stroke="#efbcbc"/>
+  <text x="1073" y="291" font-family="Arial, sans-serif" font-size="16" fill="#8d1010">X</text>
+  <text x="70" y="360" font-family="Arial, sans-serif" font-size="18" fill="#5a3b3b">Tips:</text>
+  <text x="90" y="395" font-family="Arial, sans-serif" font-size="16" fill="#6b4e4e">- Use Save to commit inline changes.</text>
+  <text x="90" y="425" font-family="Arial, sans-serif" font-size="16" fill="#6b4e4e">- Use Cancel to discard changes for that row.</text>
+</svg>

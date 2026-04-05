@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="760" viewBox="0 0 1100 760">
+  <rect width="1100" height="760" fill="#fdf2f2"/>
+  <rect x="180" y="40" width="740" height="680" rx="14" fill="#ffffff" stroke="#e5c6c6"/>
+  <text x="220" y="95" font-family="Arial, sans-serif" font-size="32" fill="#4e3535">Line Entry</text>
+  <rect x="860" y="66" width="34" height="34" rx="8" fill="#fff" stroke="#d9bcbc"/>
+  <text x="873" y="88" font-family="Arial, sans-serif" font-size="18" fill="#5a3b3b">X</text>
+  <text x="220" y="145" font-family="Arial, sans-serif" font-size="18" fill="#5a3b3b">Item</text>
+  <rect x="220" y="156" width="660" height="44" rx="8" fill="#fff" stroke="#d9bcbc"/>
+  <text x="234" y="184" font-family="Arial, sans-serif" font-size="14" fill="#8a6a6a">Type SKU or description</text>
+  <text x="220" y="240" font-family="Arial, sans-serif" font-size="18" fill="#5a3b3b">Quantity</text>
+  <rect x="220" y="251" width="660" height="44" rx="8" fill="#fff" stroke="#d9bcbc"/>
+  <text x="220" y="335" font-family="Arial, sans-serif" font-size="18" fill="#5a3b3b">Expiry Date</text>
+  <rect x="220" y="346" width="660" height="44" rx="8" fill="#fff" stroke="#d9bcbc"/>
+  <text x="220" y="430" font-family="Arial, sans-serif" font-size="18" fill="#5a3b3b">Remarks</text>
+  <rect x="220" y="441" width="660" height="44" rx="8" fill="#fff" stroke="#d9bcbc"/>
+  <text x="220" y="525" font-family="Arial, sans-serif" font-size="18" fill="#5a3b3b">Comment</text>
+  <rect x="220" y="536" width="660" height="72" rx="8" fill="#fff" stroke="#d9bcbc"/>
+  <rect x="220" y="635" width="120" height="46" rx="10" fill="#cc2a2a"/>
+  <text x="262" y="664" font-family="Arial, sans-serif" font-size="18" fill="#fff">Save</text>
+  <rect x="352" y="635" width="120" height="46" rx="10" fill="#fff" stroke="#d9bcbc"/>
+  <text x="387" y="664" font-family="Arial, sans-serif" font-size="18" fill="#5a3b3b">Cancel</text>
+</svg>
