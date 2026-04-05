@@ -586,6 +586,20 @@ th {
 	background: #fff3df;
 }
 
+#dashboardRows tr.row-focus-target td {
+	box-shadow: inset 0 0 0 2px rgba(204, 42, 42, 0.45);
+	animation: rowFocusPulse 1.2s ease-out;
+}
+
+@keyframes rowFocusPulse {
+	0% {
+		background: #ffecec;
+	}
+	100% {
+		background: transparent;
+	}
+}
+
 .item-summary,
 .policy-summary {
 	line-height: 1.2;

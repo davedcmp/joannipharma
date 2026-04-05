@@ -6,6 +6,29 @@ const STORAGE_KEYS = {
 
 const REMARK_OPTIONS = ["Yes, Intact", "Yes, Loose", "No, Loose"];
 
+const ICONS = {
+	edit: `
+		<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+			<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.96 1.96 3.75 3.75 2.13-1.79Z"/>
+		</svg>
+	`,
+	delete: `
+		<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+			<path d="M9 3h6l1 2h5v2H3V5h5l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM6 9h2v9H6V9Zm1 12a2 2 0 0 1-2-2V8h14v11a2 2 0 0 1-2 2H7Z"/>
+		</svg>
+	`,
+	save: `
+		<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+			<path d="M9.55 18.2 3.9 12.55l1.4-1.4 4.25 4.25L18.7 6.25l1.4 1.4-10.55 10.55Z"/>
+		</svg>
+	`,
+	cancel: `
+		<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+			<path d="M18.3 5.71 12 12.01l-6.3-6.3-1.41 1.41 6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.3 6.3 1.41-1.41-6.3-6.3 6.3-6.3-1.41-1.41Z"/>
+		</svg>
+	`
+};
+
 const state = {
 	vendors: readStore(STORAGE_KEYS.vendors),
 	items: readStore(STORAGE_KEYS.items),
@@ -123,8 +146,10 @@ function bindEvents() {
 		}
 	});
 
-	if (refs.startupScreen && refs.closeStartupScreenBtn && refs.startupContinueBtn && refs.startupCandidateRows) {
-		refs.closeStartupScreenBtn.addEventListener("click", closeStartupScreen);
+	if (refs.startupScreen && refs.startupContinueBtn && refs.startupCandidateRows) {
+		if (refs.closeStartupScreenBtn) {
+			refs.closeStartupScreenBtn.addEventListener("click", closeStartupScreen);
+		}
 		refs.startupContinueBtn.addEventListener("click", closeStartupScreen);
 		refs.startupScreen.addEventListener("click", (event) => {
 			if (event.target === refs.startupScreen) {
@@ -382,13 +407,37 @@ function renderAll() {
 	syncPolicyField();
 }
 
+function openModal(element) {
+	if (!element) {
+		return;
+	}
+
+	element.hidden = false;
+	document.body.classList.add("modal-open");
+}
+
+function closeModal(element) {
+	if (!element) {
+		return;
+	}
+
+	element.hidden = true;
+	syncModalBodyState();
+}
+
+function syncModalBodyState() {
+	const openModalExists = [refs.startupScreen, refs.inventoryModal, refs.messageModal, refs.confirmModal]
+		.filter(Boolean)
+		.some((element) => !element.hidden);
+	document.body.classList.toggle("modal-open", openModalExists);
+}
+
 function openStartupScreen() {
 	if (!refs.startupScreen) {
 		return;
 	}
 
-	refs.startupScreen.hidden = false;
-	document.body.classList.add("modal-open");
+	openModal(refs.startupScreen);
 }
 
 function closeStartupScreen() {
@@ -396,10 +445,7 @@ function closeStartupScreen() {
 		return;
 	}
 
-	refs.startupScreen.hidden = true;
-	if (refs.inventoryModal.hidden && refs.messageModal.hidden && refs.confirmModal.hidden) {
-		document.body.classList.remove("modal-open");
-	}
+	closeModal(refs.startupScreen);
 }
 
 function onStartupCandidateTableClick(event) {
@@ -432,7 +478,28 @@ function openStartupCandidate(id) {
 
 	closeStartupScreen();
 	showSection("dashboard");
-	editInventory(id);
+	focusDashboardRow(id);
+}
+
+function focusDashboardRow(id) {
+	if (!id) {
+		return;
+	}
+
+	const targetRow = refs.dashboardRows.querySelector(`tr[data-dashboard-row-id="${id}"]`);
+	if (!targetRow) {
+		return;
+	}
+
+	targetRow.scrollIntoView({ behavior: "smooth", block: "center" });
+	targetRow.classList.remove("row-focus-target");
+	void targetRow.offsetWidth;
+	targetRow.classList.add("row-focus-target");
+	targetRow.focus({ preventScroll: true });
+
+	window.setTimeout(() => {
+		targetRow.classList.remove("row-focus-target");
+	}, 1700);
 }
 
 function onVendorTableClick(event) {
@@ -762,32 +829,24 @@ function updateDashboardRowActionButtons(id, isInlineEditing) {
 	actionCell.innerHTML = buildDashboardRowActions(id, isInlineEditing);
 }
 
+function buildActionButtons(id, actions) {
+	return actions.map(({ action, label, title, icon, danger = false }) => `
+		<button type="button" data-action="${action}" data-id="${id}" class="icon-btn${danger ? " danger" : ""}" aria-label="${label}" title="${title}">
+			${icon}
+		</button>
+	`).join("");
+}
+
 function buildDashboardRowActions(id, isInlineEditing) {
 	return isInlineEditing
-		? `
-			<button type="button" data-action="save-inline-inventory" data-id="${id}" class="icon-btn" aria-label="Save inline changes" title="Save">
-				<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-					<path d="M9.55 18.2 3.9 12.55l1.4-1.4 4.25 4.25L18.7 6.25l1.4 1.4-10.55 10.55Z"/>
-				</svg>
-			</button>
-			<button type="button" data-action="cancel-inline-inventory" data-id="${id}" class="icon-btn danger" aria-label="Cancel inline changes" title="Cancel">
-				<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-					<path d="M18.3 5.71 12 12.01l-6.3-6.3-1.41 1.41 6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.3 6.3 1.41-1.41-6.3-6.3 6.3-6.3-1.41-1.41Z"/>
-				</svg>
-			</button>
-		`
-		: `
-			<button type="button" data-action="edit-inventory" data-id="${id}" class="icon-btn" aria-label="Edit inventory row" title="Edit">
-				<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-					<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.96 1.96 3.75 3.75 2.13-1.79Z"/>
-				</svg>
-			</button>
-			<button type="button" data-action="delete-inventory" data-id="${id}" class="icon-btn danger" aria-label="Delete inventory row" title="Delete">
-				<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-					<path d="M9 3h6l1 2h5v2H3V5h5l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM6 9h2v9H6V9Zm1 12a2 2 0 0 1-2-2V8h14v11a2 2 0 0 1-2 2H7Z"/>
-				</svg>
-			</button>
-		`;
+		? buildActionButtons(id, [
+			{ action: "save-inline-inventory", label: "Save inline changes", title: "Save", icon: ICONS.save },
+			{ action: "cancel-inline-inventory", label: "Cancel inline changes", title: "Cancel", icon: ICONS.cancel, danger: true }
+		])
+		: buildActionButtons(id, [
+			{ action: "edit-inventory", label: "Edit inventory row", title: "Edit", icon: ICONS.edit },
+			{ action: "delete-inventory", label: "Delete inventory row", title: "Delete", icon: ICONS.delete, danger: true }
+		]);
 }
 
 function saveInventoryInlineEdits(id) {
@@ -831,16 +890,10 @@ function renderVendorRows() {
 		tr.innerHTML = `
 			<td>${escapeHtml(vendor.name)}</td>
 			<td class="actions">
-				<button type="button" data-action="edit-vendor" data-id="${vendor.id}" class="icon-btn" aria-label="Edit vendor" title="Edit">
-					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-						<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.96 1.96 3.75 3.75 2.13-1.79Z"/>
-					</svg>
-				</button>
-				<button type="button" data-action="delete-vendor" data-id="${vendor.id}" class="icon-btn danger" aria-label="Delete vendor" title="Delete">
-					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-						<path d="M9 3h6l1 2h5v2H3V5h5l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM6 9h2v9H6V9Zm1 12a2 2 0 0 1-2-2V8h14v11a2 2 0 0 1-2 2H7Z"/>
-					</svg>
-				</button>
+				${buildActionButtons(vendor.id, [
+					{ action: "edit-vendor", label: "Edit vendor", title: "Edit", icon: ICONS.edit },
+					{ action: "delete-vendor", label: "Delete vendor", title: "Delete", icon: ICONS.delete, danger: true }
+				])}
 			</td>
 		`;
 		refs.vendorRows.appendChild(tr);
@@ -860,16 +913,10 @@ function renderItemRows() {
 			<td>${escapeHtml(vendor ? vendor.name : "-")}</td>
 			<td>${escapeHtml(policyLabel(item))}</td>
 			<td class="actions">
-				<button type="button" data-action="edit-item" data-id="${item.id}" class="icon-btn" aria-label="Edit item" title="Edit">
-					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-						<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.96 1.96 3.75 3.75 2.13-1.79Z"/>
-					</svg>
-				</button>
-				<button type="button" data-action="delete-item" data-id="${item.id}" class="icon-btn danger" aria-label="Delete item" title="Delete">
-					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-						<path d="M9 3h6l1 2h5v2H3V5h5l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM6 9h2v9H6V9Zm1 12a2 2 0 0 1-2-2V8h14v11a2 2 0 0 1-2 2H7Z"/>
-					</svg>
-				</button>
+				${buildActionButtons(item.id, [
+					{ action: "edit-item", label: "Edit item", title: "Edit", icon: ICONS.edit },
+					{ action: "delete-item", label: "Delete item", title: "Delete", icon: ICONS.delete, danger: true }
+				])}
 			</td>
 		`;
 		refs.itemRows.appendChild(tr);
@@ -887,11 +934,9 @@ function renderDashboardRows() {
 		const inlineComment = draft ? draft.comment : (row.comment || "");
 		const isInlineEditing = Boolean(draft);
 		const tr = document.createElement("tr");
-		if (rowStatus === "expired") {
-			tr.classList.add("row-expired");
-		} else if (rowStatus === "pullout") {
-			tr.classList.add("row-pullout");
-		}
+		tr.dataset.dashboardRowId = row.id;
+		tr.tabIndex = -1;
+		applyRowStatusClass(tr, rowStatus);
 		tr.innerHTML = `
 			<td>${escapeHtml(item.sku)}</td>
 			<td>
@@ -934,6 +979,17 @@ function renderDashboardRows() {
 	}
 }
 
+function applyRowStatusClass(rowElement, rowStatus) {
+	if (rowStatus === "expired") {
+		rowElement.classList.add("row-expired");
+		return;
+	}
+
+	if (rowStatus === "pullout") {
+		rowElement.classList.add("row-pullout");
+	}
+}
+
 function renderStartupCandidateRows() {
 	if (!refs.startupCandidateRows || !refs.startupScreenSummary) {
 		return;
@@ -954,11 +1010,7 @@ function renderStartupCandidateRows() {
 		tr.tabIndex = 0;
 		tr.setAttribute("role", "button");
 		tr.setAttribute("aria-label", `Open inventory entry for ${item.description}`);
-		if (rowStatus === "expired") {
-			tr.classList.add("row-expired");
-		} else if (rowStatus === "pullout") {
-			tr.classList.add("row-pullout");
-		}
+		applyRowStatusClass(tr, rowStatus);
 		tr.innerHTML = `
 			<td>
 				<div class="item-summary">
@@ -1093,12 +1145,22 @@ function bindComboBox(combo, inputEl, popupEl, hiddenEl) {
 	return { close: closePopup, renderPopup };
 }
 
+function populateLookupOptions(combo, entries, getLabel) {
+	combo.options = [];
+	combo.labelToId.clear();
+	combo.idToLabel.clear();
+	combo.highlightedIndex = -1;
+
+	for (const entry of entries) {
+		const label = getLabel(entry);
+		combo.options.push({ id: entry.id, label, lower: label.toLowerCase() });
+		combo.labelToId.set(label.toLowerCase(), entry.id);
+		combo.idToLabel.set(entry.id, label);
+	}
+}
+
 function renderItemVendorOptions() {
 	const previous = refs.itemVendor.value;
-	itemVendorLookup.options = [];
-	itemVendorLookup.labelToId.clear();
-	itemVendorLookup.idToLabel.clear();
-	itemVendorLookup.highlightedIndex = -1;
 	refs.itemVendorPopup.innerHTML = "";
 
 	if (!state.vendors.length) {
@@ -1112,12 +1174,7 @@ function renderItemVendorOptions() {
 
 	refs.itemVendorInput.disabled = false;
 	refs.itemVendorInput.placeholder = "Type vendor name";
-	for (const vendor of state.vendors) {
-		const label = vendor.name;
-		itemVendorLookup.options.push({ id: vendor.id, label, lower: label.toLowerCase() });
-		itemVendorLookup.labelToId.set(label.toLowerCase(), vendor.id);
-		itemVendorLookup.idToLabel.set(vendor.id, label);
-	}
+	populateLookupOptions(itemVendorLookup, state.vendors, (vendor) => vendor.name);
 
 	refs.itemVendor.value = previous && state.vendors.some((entry) => entry.id === previous)
 		? previous
@@ -1131,11 +1188,7 @@ function renderItemVendorOptions() {
 function renderInventoryItemOptions() {
 	const previous = refs.inventoryItem.value;
 	const vendorMap = createMapById(state.vendors);
-	inventoryCombo.options = [];
-	inventoryCombo.labelToId.clear();
-	inventoryCombo.idToLabel.clear();
 	refs.inventoryItemPopup.innerHTML = "";
-	inventoryCombo.highlightedIndex = -1;
 
 	if (!state.items.length) {
 		refs.inventoryItemInput.value = "";
@@ -1151,13 +1204,10 @@ function renderInventoryItemOptions() {
 	refs.inventoryItemInput.disabled = false;
 	refs.inventoryItemInput.placeholder = "Type SKU or description";
 	refs.newInventoryBtn.disabled = false;
-	for (const item of state.items) {
+	populateLookupOptions(inventoryCombo, state.items, (item) => {
 		const vendor = vendorMap.get(item.vendorId);
-		const label = `${item.sku} - ${item.description} (${vendor ? vendor.name : "No vendor"})`;
-		inventoryCombo.options.push({ id: item.id, label, lower: label.toLowerCase() });
-		inventoryCombo.labelToId.set(label.toLowerCase(), item.id);
-		inventoryCombo.idToLabel.set(item.id, label);
-	}
+		return `${item.sku} - ${item.description} (${vendor ? vendor.name : "No vendor"})`;
+	});
 
 	refs.inventoryItem.value = previous && state.items.some((entry) => entry.id === previous)
 		? previous
@@ -1169,44 +1219,32 @@ function renderInventoryItemOptions() {
 }
 
 function openInventoryModal() {
-	refs.inventoryModal.hidden = false;
-	document.body.classList.add("modal-open");
+	openModal(refs.inventoryModal);
 }
 
 function closeInventoryModal() {
-	refs.inventoryModal.hidden = true;
-	if (refs.messageModal.hidden && refs.confirmModal.hidden) {
-		document.body.classList.remove("modal-open");
-	}
+	closeModal(refs.inventoryModal);
 }
 
 function showIssueModal(message, title = "Unable to Save") {
 	refs.messageModalTitle.textContent = title;
 	refs.messageModalText.textContent = message;
-	refs.messageModal.hidden = false;
-	document.body.classList.add("modal-open");
+	openModal(refs.messageModal);
 }
 
 function closeMessageModal() {
-	refs.messageModal.hidden = true;
-	if (refs.inventoryModal.hidden && refs.confirmModal.hidden) {
-		document.body.classList.remove("modal-open");
-	}
+	closeModal(refs.messageModal);
 }
 
 function showDeleteConfirm(message, onConfirm) {
 	pendingDeleteAction = typeof onConfirm === "function" ? onConfirm : null;
 	refs.confirmModalText.textContent = message;
-	refs.confirmModal.hidden = false;
-	document.body.classList.add("modal-open");
+	openModal(refs.confirmModal);
 }
 
 function closeConfirmModal() {
-	refs.confirmModal.hidden = true;
 	pendingDeleteAction = null;
-	if (refs.inventoryModal.hidden && refs.messageModal.hidden) {
-		document.body.classList.remove("modal-open");
-	}
+	closeModal(refs.confirmModal);
 }
 
 function confirmDelete() {
